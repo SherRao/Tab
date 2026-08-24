@@ -1,6 +1,6 @@
 import { getEventByToken } from "@/lib/queries";
 import { notFound } from "next/navigation";
-import ExpenseEditor from "@/components/expense-editor";
+import NewExpenseFlow from "@/components/new-expense-flow";
 import Link from "next/link";
 
 export default async function NewExpensePage({
@@ -22,7 +22,7 @@ export default async function NewExpensePage({
       </Link>
       <h1 className="mt-2 text-3xl font-bold tracking-tight">Add expense</h1>
       <div className="mt-8 pb-4">
-        <ExpenseEditor token={token} participants={detail.participants} />
+        <NewExpenseFlow token={token} participants={detail.participants} />
       </div>
     </main>
   );

@@ -1,0 +1,14 @@
+CAFE MODESTO
+1234 Main St
+
+2x Latte          $9.00
+1x Croissant       4.25
+Avocado Toast      12.50
+
+Subtotal          25.75
+Tax                2.06
+Tip                4.00
+Total             31.81
+
+Visa ****1234
+Thank you!

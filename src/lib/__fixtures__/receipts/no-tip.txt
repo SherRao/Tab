@@ -1,0 +1,12 @@
+THE TACO JOINT
+Order #42
+------------------
+3x Street Tacos   10.50
+Chips & Guac       6.75
+2x Horchata        7.00
+Margarita Pitcher 22.00
+
+Tax                3.70
+TOTAL             49.95
+Cash
+Change             0.05

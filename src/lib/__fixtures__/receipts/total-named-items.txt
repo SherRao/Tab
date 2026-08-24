@@ -1,0 +1,9 @@
+TOTAL TACO PALACE
+------------------
+Guacamole          8.00   ok
+Total Nachos       11.25
+2x Total Taos       9.50
+
+Tax                2.31
+Gratuity           6.16
+TOTAL             37.22

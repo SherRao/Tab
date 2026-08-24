@@ -1,0 +1,10 @@
+TRATTORIA NONNA
+
+Spaghetti          18,50
+Tiramisu            9,00
+Sparkling Water     5,00
+
+Subtotale          32,50
+Imposta (IVA)       2,93
+Servizio            4,88
+TOTALE             40,31
