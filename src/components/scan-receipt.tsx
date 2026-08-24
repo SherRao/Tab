@@ -79,76 +79,78 @@ export default function ScanReceipt({
   const busy = phase !== "idle";
 
   return (
-    <div className="rounded-2xl border border-stone-200/70 bg-white p-6 shadow-sm">
-      <h2 className="font-semibold">Scan receipt</h2>
-      <p className="mt-1 text-sm text-stone-500">
-        Take a photo of the receipt — everything stays on your device.
-      </p>
-
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          e.target.value = "";
-          if (file) void handleFile(file);
-        }}
-      />
-
-      {previewUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={previewUrl}
-          alt="Receipt preview"
-          className="mx-auto mt-4 max-h-48 rounded-lg border border-stone-200 object-contain"
-        />
-      )}
-
-      {busy && (
-        <div className="mt-4">
-          <div className="h-2 overflow-hidden rounded-full bg-stone-100">
-            <div
-              className="h-full rounded-full bg-emerald-500 transition-all"
-              style={{ width: `${phase === "preparing" ? 5 : Math.max(progress, 5)}%` }}
-            />
-          </div>
-          <p className="mt-2 text-center text-xs text-stone-500">
-            {phase === "preparing"
-              ? "Preparing scanner…"
-              : `Reading receipt… ${progress}%`}
-          </p>
-        </div>
-      )}
-
-      {error && (
-        <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          ⚠️ {error}
+    <div className="receipt-card receipt-edge">
+      <div className="receipt-lined p-6 pb-8">
+        <h2 className="text-lg font-semibold tracking-tight">Scan a receipt</h2>
+        <p className="mt-1 text-sm text-stone-500">
+          Take a photo of the receipt — everything stays on your device.
         </p>
-      )}
 
-      <div className="mt-5 flex flex-wrap gap-2">
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => inputRef.current?.click()}
-          className="flex-1 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-600/25 transition hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-40 disabled:shadow-none"
-        >
-          {busy ? "Scanning…" : previewUrl ? "Re-scan" : "Take / choose photo"}
-        </button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => {
-            revokeUrl();
-            onCancel();
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file) void handleFile(file);
           }}
-          className="rounded-lg border border-stone-300 px-4 py-2.5 text-sm font-medium text-stone-600 transition hover:bg-stone-100 disabled:opacity-40"
-        >
-          Enter manually
-        </button>
+        />
+
+        {previewUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={previewUrl}
+            alt="Receipt preview"
+            className="mx-auto mt-4 max-h-48 border border-stone-200 object-contain"
+          />
+        )}
+
+        {busy && (
+          <div className="mt-4">
+            <div className="h-1.5 overflow-hidden bg-stone-200/70">
+              <div
+                className="h-full bg-accent transition-all"
+                style={{ width: `${phase === "preparing" ? 5 : Math.max(progress, 5)}%` }}
+              />
+            </div>
+            <p className="label-mono mt-2 text-center text-stone-500">
+              {phase === "preparing"
+                ? "Preparing scanner…"
+                : `Reading receipt… ${progress}%`}
+            </p>
+          </div>
+        )}
+
+        {error && (
+          <p className="mt-4 border-l-4 border-l-amber-400 bg-amber-50 px-4 py-3 font-mono text-xs text-amber-800">
+            ! {error}
+          </p>
+        )}
+
+        <div className="mt-5 flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => inputRef.current?.click()}
+            className="btn-ink flex-1 disabled:cursor-not-allowed"
+          >
+            {busy ? "Scanning…" : previewUrl ? "Re-scan" : "Take / choose photo"}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => {
+              revokeUrl();
+              onCancel();
+            }}
+            className="btn-ghost"
+          >
+            Enter manually
+          </button>
+        </div>
       </div>
     </div>
   );

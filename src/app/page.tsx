@@ -111,7 +111,7 @@ export default async function HomePage({
           </p>
 
           {/* create-event form */}
-          <form action={createEventAction} className="paper-card mt-10 max-w-lg p-6">
+          <form action={createEventAction} className="paper-card mt-10 max-w-lg p-6" id="start">
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label htmlFor="name" className="label-mono block text-stone-500">
@@ -206,7 +206,7 @@ export default async function HomePage({
             </li>
           ))}
         </ol>
-        <a href="#top" className="btn-ink mt-14 inline-flex">
+        <a href="#start" className="btn-ink mt-14 inline-flex">
           Start a tab — it&apos;s free
         </a>
       </section>

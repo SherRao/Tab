@@ -41,9 +41,9 @@ function formatMoney(cents: number): string {
 }
 
 const MODES = [
-  { value: "itemized", label: "By items", hint: "Tag who got what on each line", icon: "🧾" },
-  { value: "even", label: "Even split", hint: "Divide the total between chosen people", icon: "➗" },
-  { value: "group", label: "Group", hint: "Everyone splits it all — birthday mode 🎂", icon: "🎂" },
+  { value: "itemized", label: "By items", hint: "Tag who got what on each line" },
+  { value: "even", label: "Even split", hint: "Divide the total between chosen people" },
+  { value: "group", label: "Group", hint: "Everyone splits it all — birthday mode" },
 ] as const;
 
 export default function ExpenseEditor({
@@ -134,275 +134,280 @@ export default function ExpenseEditor({
     }
   }
 
-  const inputCls =
-    "w-full rounded-lg border border-stone-300 bg-white px-3.5 py-2.5 transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/15 focus:outline-none";
+  const amountInput =
+    "input-ink pl-7 text-right font-mono tabular-nums";
   const activeMode = MODES.find((m) => m.value === splitMode)!;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <label className="block text-sm font-medium">Description</label>
-        <input
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Lunch at Taco Place"
-          className={`mt-1.5 ${inputCls}`}
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
+    <div className="receipt-card receipt-edge">
+      <div className="receipt-lined space-y-7 p-6 pb-8 sm:p-8 sm:pb-9">
         <div>
-          <label className="block text-sm font-medium">Paid by</label>
-          <select
-            value={payerId ?? ""}
-            onChange={(e) => setPayerId(Number(e.target.value))}
-            className={`mt-1.5 ${inputCls}`}
-          >
-            <option value="" disabled>
-              Select…
-            </option>
-            {participants.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+          <label className="label-mono block text-stone-500">Description</label>
+          <input
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Lunch at Taco Place"
+            className="input-ink mt-1.5"
+          />
         </div>
-        <div>
-          <label className="block text-sm font-medium">Total</label>
-          <div className="relative mt-1.5">
-            <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-stone-400">
-              $
-            </span>
-            <input
-              value={total}
-              onChange={(e) => setTotal(e.target.value)}
-              placeholder="0.00"
-              inputMode="decimal"
-              className={`${inputCls} pl-7 text-right font-semibold tabular-nums`}
-            />
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="label-mono block text-stone-500">Paid by</label>
+            <select
+              value={payerId ?? ""}
+              onChange={(e) => setPayerId(Number(e.target.value))}
+              className={`input-ink mt-1.5 ${payerId === undefined ? "text-stone-400" : ""}`}
+            >
+              <option value="" disabled>
+                Select…
+              </option>
+              {participants.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="label-mono block text-stone-500">Total</label>
+            <div className="relative mt-1.5">
+              <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 font-mono text-stone-400">
+                $
+              </span>
+              <input
+                value={total}
+                onChange={(e) => setTotal(e.target.value)}
+                placeholder="0.00"
+                inputMode="decimal"
+                className={`${amountInput} font-semibold`}
+              />
+            </div>
           </div>
         </div>
-      </div>
 
-      <section>
-        <label className="block text-sm font-medium">How should this be split?</label>
-        <div className="mt-2 grid grid-cols-3 gap-2">
-          {MODES.map((m) => (
-            <button
-              key={m.value}
-              type="button"
-              onClick={() => setSplitMode(m.value)}
-              className={`rounded-xl border p-3 text-left transition ${
-                splitMode === m.value
-                  ? "border-emerald-600 bg-emerald-50 ring-2 ring-emerald-600/20"
-                  : "border-stone-200 bg-white hover:border-stone-300"
-              }`}
-            >
-              <span className="text-lg">{m.icon}</span>
-              <span
-                className={`mt-1 block text-sm font-semibold ${
-                  splitMode === m.value ? "text-emerald-800" : ""
+        <section>
+          <label className="label-mono block text-stone-500">
+            How should this be split?
+          </label>
+          <div className="mt-2 grid grid-cols-3 gap-2">
+            {MODES.map((m) => (
+              <button
+                key={m.value}
+                type="button"
+                onClick={() => setSplitMode(m.value)}
+                className={`border p-3 text-left transition ${
+                  splitMode === m.value
+                    ? "border-accent-strong bg-accent/10 shadow-sm"
+                    : "border-foreground/20 hover:border-foreground/45"
                 }`}
               >
-                {m.label}
-              </span>
-              <span className="mt-0.5 block text-[11px] leading-snug text-stone-400">
-                {m.hint}
-              </span>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {splitMode === "itemized" && (
-        <section>
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold">Line items</h2>
-            <button
-              type="button"
-              onClick={() =>
-                setItems((prev) => [...prev, { name: "", amount: "", participantIds: [] }])
-              }
-              className="rounded-lg px-2 py-1 text-sm font-medium text-emerald-700 transition hover:bg-emerald-50"
-            >
-              + Add item
-            </button>
-          </div>
-          <ul className="mt-2 space-y-3">
-            {items.map((item, idx) => (
-              <li key={idx} className="rounded-xl border border-stone-200/70 bg-white p-3.5 shadow-sm">
-                <div className="flex gap-2">
-                  <input
-                    value={item.name}
-                    onChange={(e) => updateItem(idx, { name: e.target.value })}
-                    placeholder="Item name"
-                    className={`${inputCls} py-2`}
-                  />
-                  <div className="relative w-28 shrink-0">
-                    <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-stone-400">
-                      $
-                    </span>
-                    <input
-                      value={item.amount}
-                      onChange={(e) => updateItem(idx, { amount: e.target.value })}
-                      placeholder="0.00"
-                      inputMode="decimal"
-                      className={`${inputCls} py-2 pr-2 pl-7 text-right tabular-nums`}
-                    />
-                  </div>
-                </div>
-                <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => assignAllToItem(idx)}
-                    className="rounded-full border border-dashed border-stone-400 px-2.5 py-1 text-xs font-medium text-stone-500 transition hover:border-emerald-500 hover:text-emerald-700"
-                  >
-                    Everyone
-                  </button>
-                  {participants.map((p) => {
-                    const on = item.participantIds.includes(p.id);
-                    return (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => toggleAssignee(idx, p.id)}
-                        className={`rounded-full px-2.5 py-1 text-xs font-medium transition active:scale-[0.95] ${
-                          on
-                            ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/30"
-                            : "bg-stone-100 text-stone-600 hover:bg-stone-200"
-                        }`}
-                      >
-                        {on && "✓ "}
-                        {p.name}
-                      </button>
-                    );
-                  })}
-                  {items.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => setItems((prev) => prev.filter((_, i) => i !== idx))}
-                      className="ml-auto rounded-md px-2 py-1 text-xs text-red-400 transition hover:bg-red-50 hover:text-red-600"
-                    >
-                      Remove
-                    </button>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-2 text-xs tabular-nums text-stone-400">
-            Items so far: ${formatMoney(computed.itemsSum)}
-          </p>
-        </section>
-      )}
-
-      {splitMode === "even" && (
-        <section>
-          <h2 className="text-sm font-semibold">Split between</h2>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {participants.map((p) => {
-              const on = evenIds.includes(p.id);
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() =>
-                    setEvenIds((prev) =>
-                      prev.includes(p.id) ? prev.filter((x) => x !== p.id) : [...prev, p.id],
-                    )
-                  }
-                  className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition active:scale-[0.95] ${
-                    on
-                      ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/30"
-                      : "bg-stone-100 text-stone-600 hover:bg-stone-200"
+                <span
+                  className={`block font-mono text-[13px] font-semibold ${
+                    splitMode === m.value ? "text-accent-strong" : ""
                   }`}
                 >
-                  {on && "✓ "}
-                  {p.name}
-                </button>
-              );
-            })}
+                  {m.label}
+                </span>
+                <span className="mt-1 block text-[11px] leading-snug text-stone-400">
+                  {m.hint}
+                </span>
+              </button>
+            ))}
           </div>
         </section>
-      )}
 
-      {splitMode === "group" && (
-        <p className="flex items-center gap-2 rounded-xl border border-purple-200 bg-purple-50 px-4 py-3 text-sm text-purple-800">
-          <span className="text-base">🎂</span>
-          Everyone in the event splits the whole total equally.
-        </p>
-      )}
-
-      {(splitMode === "itemized" || splitMode === "group") && (
-        <section className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm font-medium">Tax</label>
-            <div className="relative mt-1.5">
-              <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-stone-400">
-                $
-              </span>
-              <input
-                value={tax}
-                onChange={(e) => setTax(e.target.value)}
-                placeholder="0.00"
-                inputMode="decimal"
-                className={`${inputCls} pl-7 text-right tabular-nums`}
-              />
+        {splitMode === "itemized" && (
+          <section>
+            <div className="flex items-center justify-between">
+              <h2 className="label-mono text-stone-500">Line items</h2>
+              <button
+                type="button"
+                onClick={() =>
+                  setItems((prev) => [...prev, { name: "", amount: "", participantIds: [] }])
+                }
+                className="label-mono px-1 py-0.5 text-accent-strong transition hover:underline"
+              >
+                + Add item
+              </button>
             </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium">Tip</label>
-            <div className="relative mt-1.5">
-              <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-stone-400">
-                $
-              </span>
-              <input
-                value={tip}
-                onChange={(e) => setTip(e.target.value)}
-                placeholder="0.00"
-                inputMode="decimal"
-                className={`${inputCls} pl-7 text-right tabular-nums`}
-              />
+            <ul className="mt-3 space-y-3">
+              {items.map((item, idx) => (
+                <li
+                  key={idx}
+                  className="border border-dashed border-foreground/25 bg-background/60 p-3.5"
+                >
+                  <div className="flex gap-2">
+                    <input
+                      value={item.name}
+                      onChange={(e) => updateItem(idx, { name: e.target.value })}
+                      placeholder="Item name"
+                      className="input-ink py-2"
+                    />
+                    <div className="relative w-28 shrink-0">
+                      <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 font-mono text-stone-400">
+                        $
+                      </span>
+                      <input
+                        value={item.amount}
+                        onChange={(e) => updateItem(idx, { amount: e.target.value })}
+                        placeholder="0.00"
+                        inputMode="decimal"
+                        className={`${amountInput} py-2 pr-2`}
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => assignAllToItem(idx)}
+                      className="rounded-full border border-dashed border-stone-400 px-2.5 py-1 font-mono text-[11px] tracking-wide text-stone-500 uppercase transition hover:border-accent hover:text-accent-strong"
+                    >
+                      Everyone
+                    </button>
+                    {participants.map((p) => {
+                      const on = item.participantIds.includes(p.id);
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => toggleAssignee(idx, p.id)}
+                          className={`rounded-full px-2.5 py-1 font-mono text-[11px] font-medium tracking-wide uppercase transition active:scale-[0.95] ${
+                            on
+                              ? "bg-accent text-white shadow-sm"
+                              : "bg-stone-200/70 text-stone-600 hover:bg-stone-300/70"
+                          }`}
+                        >
+                          {on && "✓ "}
+                          {p.name}
+                        </button>
+                      );
+                    })}
+                    {items.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setItems((prev) => prev.filter((_, i) => i !== idx))}
+                        className="ml-auto rounded-md px-2 py-1 font-mono text-[11px] tracking-wide text-red-400 uppercase transition hover:text-red-600"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 font-mono text-[11px] tracking-wide text-stone-400 tabular-nums uppercase">
+              Items so far: ${formatMoney(computed.itemsSum)}
+            </p>
+          </section>
+        )}
+
+        {splitMode === "even" && (
+          <section>
+            <h2 className="label-mono text-stone-500">Split between</h2>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {participants.map((p) => {
+                const on = evenIds.includes(p.id);
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() =>
+                      setEvenIds((prev) =>
+                        prev.includes(p.id) ? prev.filter((x) => x !== p.id) : [...prev, p.id],
+                      )
+                    }
+                    className={`rounded-full px-3 py-1.5 font-mono text-xs font-medium tracking-wide uppercase transition active:scale-[0.95] ${
+                      on
+                        ? "bg-accent text-white shadow-sm"
+                        : "bg-stone-200/70 text-stone-600 hover:bg-stone-300/70"
+                    }`}
+                  >
+                    {on && "✓ "}
+                    {p.name}
+                  </button>
+                );
+              })}
             </div>
-          </div>
-        </section>
-      )}
+          </section>
+        )}
 
-      {computed.discrepancy !== 0 && (
-        <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          ⚠️ Items ({formatMoney(computed.itemsSum)}) + tax + tip ={" "}
-          {formatMoney(computed.expected)}, but the total you entered is{" "}
-          {formatMoney(toCents(total))} ({computed.discrepancy > 0 ? "+" : ""}
-          {formatMoney(computed.discrepancy)}). You can still save.
-        </p>
-      )}
-      {splitMode === "itemized" && computed.unassigned > 0 && (
-        <p className="text-sm text-amber-700">
-          ⚠️ {computed.unassigned} line item{computed.unassigned > 1 ? "s" : ""}{" "}
-          ha{computed.unassigned > 1 ? "ve" : "s"} no assignees yet.
-        </p>
-      )}
+        {splitMode === "group" && (
+          <p className="flex items-center gap-2 border border-dashed border-accent/50 bg-accent/10 px-4 py-3 font-mono text-xs text-accent-strong">
+            Everyone in the event splits the whole total equally.
+          </p>
+        )}
 
-      <div className="sticky bottom-0 -mx-6 flex gap-3 border-t border-stone-200/70 bg-background/90 px-6 py-4 backdrop-blur">
+        {(splitMode === "itemized" || splitMode === "group") && (
+          <section className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label-mono block text-stone-500">Tax</label>
+              <div className="relative mt-1.5">
+                <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 font-mono text-stone-400">
+                  $
+                </span>
+                <input
+                  value={tax}
+                  onChange={(e) => setTax(e.target.value)}
+                  placeholder="0.00"
+                  inputMode="decimal"
+                  className={amountInput}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="label-mono block text-stone-500">Tip</label>
+              <div className="relative mt-1.5">
+                <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 font-mono text-stone-400">
+                  $
+                </span>
+                <input
+                  value={tip}
+                  onChange={(e) => setTip(e.target.value)}
+                  placeholder="0.00"
+                  inputMode="decimal"
+                  className={amountInput}
+                />
+              </div>
+            </div>
+          </section>
+        )}
+
+        {computed.discrepancy !== 0 && (
+          <p className="border-l-4 border-l-amber-400 bg-amber-50 px-4 py-3 font-mono text-xs leading-relaxed text-amber-800">
+            Items ({formatMoney(computed.itemsSum)}) + tax + tip ={" "}
+            {formatMoney(computed.expected)}, but the total you entered is{" "}
+            {formatMoney(toCents(total))} ({computed.discrepancy > 0 ? "+" : ""}
+            {formatMoney(computed.discrepancy)}). You can still save.
+          </p>
+        )}
+        {splitMode === "itemized" && computed.unassigned > 0 && (
+          <p className="font-mono text-xs text-amber-700">
+            ! {computed.unassigned} line item{computed.unassigned > 1 ? "s" : ""}{" "}
+            ha{computed.unassigned > 1 ? "ve" : "s"} no assignees yet.
+          </p>
+        )}
+      </div>
+
+      <div className="sticky bottom-0 z-10 flex gap-3 border-t border-dashed border-foreground/25 bg-paper/95 px-6 py-4 backdrop-blur sm:px-8">
         <button
           type="button"
           disabled={saving || payerId === undefined}
           onClick={handleSave}
-          className="flex-1 rounded-lg bg-emerald-600 px-4 py-3 font-semibold text-white shadow-lg shadow-emerald-600/25 transition hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-40 disabled:shadow-none"
+          className="btn-ink flex-1 disabled:cursor-not-allowed"
         >
-          {saving ? "Saving…" : expenseId ? "Save changes" : "Save expense"}
+          {saving ? "Saving…" : expenseId ? "Save changes" : "Save receipt"}
         </button>
         <button
           type="button"
           onClick={() => router.push(`/e/${token}`)}
-          className="rounded-lg border border-stone-300 px-5 py-3 font-medium text-stone-600 transition hover:bg-stone-100"
+          className="btn-ghost"
         >
           Cancel
         </button>
       </div>
-      <p className="-mt-4 text-center text-xs text-stone-400">
-        Split mode: {activeMode.label.toLowerCase()} · tax &amp; tip are shared proportionally
+      <p className="pb-6 text-center font-mono text-[11px] text-stone-400 sm:pb-7">
+        {activeMode.label.toLowerCase()} · tax &amp; tip are shared proportionally
       </p>
     </div>
   );

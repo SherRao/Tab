@@ -17,14 +17,14 @@ export default async function EditExpensePage({
   const { expense, items } = row;
 
   return (
-    <main className="mx-auto w-full max-w-xl flex-1 px-6 py-10">
+    <main className="mx-auto w-full max-w-xl flex-1 px-6 pt-8 pb-16">
       <Link
         href={`/e/${token}`}
-        className="text-sm text-stone-400 transition hover:text-stone-600"
+        className="label-mono text-stone-400 transition hover:text-foreground"
       >
         ← {detail.event.name}
       </Link>
-      <h1 className="mt-2 text-3xl font-bold tracking-tight">Edit expense</h1>
+      <h1 className="display mt-3 text-4xl sm:text-5xl">Edit receipt</h1>
       <div className="mt-8 pb-4">
         <ExpenseEditor
           token={token}

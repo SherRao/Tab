@@ -55,7 +55,7 @@ export default function NewExpenseFlow({
         <button
           type="button"
           onClick={() => setStage("editor")}
-          className="w-full rounded-xl border border-stone-200/70 bg-white px-4 py-3 text-sm font-medium text-stone-600 shadow-sm transition hover:bg-stone-50"
+          className="btn-ghost w-full"
         >
           Skip — type it in manually
         </button>
@@ -66,7 +66,7 @@ export default function NewExpenseFlow({
   return (
     <div className="space-y-4">
       {scanNotice && (
-        <div className="flex items-start justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+        <div className="flex items-start justify-between gap-3 border border-accent/40 bg-accent/10 px-4 py-3 font-mono text-xs text-accent-strong">
           <span>✓ {scanNotice}</span>
           <button
             type="button"
@@ -75,7 +75,7 @@ export default function NewExpenseFlow({
               setInitial(undefined);
               setStage("choose");
             }}
-            className="shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
+            className="shrink-0 px-2 py-0.5 font-semibold uppercase transition hover:underline"
           >
             Re-scan
           </button>

@@ -48,6 +48,7 @@ export default async function EventPage({
   const nets = computeNetBalances(people, ledgerExpenses);
   const transfers = simplifyDebts(nets);
   const nameOf = new Map(people.map((p) => [p.id, p.name]));
+  const grandTotal = expenseRows.reduce((sum, r) => sum + r.expense.totalCents, 0);
   const unassignedWarnings = expenseRows.flatMap(({ expense, items }) =>
     items
       .filter((i) => i.participantIds.length === 0)
@@ -58,100 +59,132 @@ export default async function EventPage({
   );
 
   return (
-    <main className="mx-auto w-full max-w-2xl flex-1 px-6 py-10">
+    <main className="mx-auto w-full max-w-2xl flex-1 px-6 pt-8 pb-20">
+      {/* header */}
       <header>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-3xl font-bold tracking-tight">{event.name}</h1>
+        <div className="flex items-baseline justify-between gap-3">
+          <Link
+            href="/"
+            className="label-mono text-stone-400 transition hover:text-foreground"
+          >
+            ← new tab
+          </Link>
           <Link
             href={`/e/${token}/expenses/new`}
-            className="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-600/25 transition hover:bg-emerald-700 active:scale-[0.98]"
+            className="btn-ink px-4 py-2.5"
           >
             + Add expense
           </Link>
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-stone-300 bg-white/60 px-4 py-2.5">
-          <span className="text-xs font-medium uppercase tracking-wide text-stone-400">
-            Share
-          </span>
-          <code className="min-w-0 flex-1 truncate text-sm text-stone-600">
+        <h1 className="display mt-4 text-5xl sm:text-6xl">{event.name}</h1>
+
+        {/* share strip */}
+        <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-2 border-y border-dashed border-foreground/25 py-2.5">
+          <span className="label-mono text-stone-400">Share</span>
+          <code className="min-w-0 flex-1 truncate font-mono text-sm text-stone-600">
             /e/{token}
           </code>
           <CopyLinkButton path={`/e/${token}`} />
         </div>
+
+        {expenseRows.length > 0 && (
+          <div className="mt-4 flex items-baseline justify-between font-mono text-sm tabular-nums">
+            <span className="label-mono text-stone-400">
+              {expenseRows.length} receipt{expenseRows.length > 1 ? "s" : ""} on file
+            </span>
+            <span className="font-semibold">{formatCents(grandTotal)}</span>
+          </div>
+        )}
       </header>
 
-      <section className="mt-8">
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <h2 className="font-semibold">People</h2>
-        </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+      {/* balances */}
+      <section className="mt-12">
+        <h2 className="label-mono border-b border-foreground/15 pb-2 text-stone-400">
+          Balances
+        </h2>
+        <ul className="divide-y divide-dashed divide-foreground/10">
           {people.map((p) => {
             const net = nets.get(p.id) ?? 0;
             return (
-              <span
-                key={p.id}
-                className={`inline-flex items-baseline gap-2 rounded-full py-1.5 pr-3.5 pl-3.5 text-sm ring-1 ${
-                  net > 0
-                    ? "bg-emerald-50 text-emerald-800 ring-emerald-200"
-                    : net < 0
-                      ? "bg-orange-50 text-orange-800 ring-orange-200"
-                      : "bg-stone-100 text-stone-500 ring-stone-200"
-                }`}
-              >
-                <span className="font-medium">{p.name}</span>
-                <span className="text-xs tabular-nums opacity-75">
+              <li key={p.id} className="flex items-center justify-between py-2.5">
+                <span className="flex min-w-0 items-center gap-2.5">
+                  <span
+                    className={`h-2 w-2 shrink-0 rounded-full ${
+                      net > 0
+                        ? "bg-accent"
+                        : net < 0
+                          ? "bg-orange-500"
+                          : "bg-stone-300"
+                    }`}
+                  />
+                  <span className="truncate font-medium">{p.name}</span>
+                </span>
+                <span
+                  className={`font-mono text-sm font-semibold tabular-nums ${
+                    net > 0
+                      ? "text-accent-strong"
+                      : net < 0
+                        ? "text-orange-600"
+                        : "text-stone-400"
+                  }`}
+                >
                   {net > 0
-                    ? `+${formatCents(net)}`
+                    ? `gets back ${formatCents(net)}`
                     : net < 0
-                      ? `−${formatCents(-net)}`
+                      ? `owes ${formatCents(-net)}`
                       : "settled"}
                 </span>
-              </span>
+              </li>
             );
           })}
-          <form action={addParticipantAction} className="flex items-center gap-1.5">
-            <input type="hidden" name="token" value={token} />
-            <input
-              name="name"
-              required
-              placeholder="+ Add someone"
-              size={12}
-              className="rounded-full border border-dashed border-stone-300 bg-transparent px-3.5 py-1.5 text-sm placeholder:text-stone-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/15 focus:outline-none"
-            />
-          </form>
-        </div>
+        </ul>
+        <form action={addParticipantAction} className="mt-3 flex items-center gap-2">
+          <input type="hidden" name="token" value={token} />
+          <input
+            name="name"
+            required
+            placeholder="+ Add someone"
+            size={14}
+            className="input-ink max-w-44 border-dashed py-1.5 text-sm"
+          />
+        </form>
       </section>
 
       {unassignedWarnings.length > 0 && (
-        <div className="mt-6 space-y-1 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+        <div className="paper-card mt-8 space-y-1 border-l-4 border-l-amber-400 p-4 font-mono text-xs leading-relaxed text-amber-800">
           {unassignedWarnings.map((w) => (
-            <p key={w}>⚠️ {w}</p>
+            <p key={w}>! {w}</p>
           ))}
         </div>
       )}
 
-      <section className="mt-10">
-        <h2 className="font-semibold">Settle up</h2>
+      {/* settle up */}
+      <section className="mt-12">
+        <h2 className="label-mono border-b border-foreground/15 pb-2 text-stone-400">
+          Settle up
+        </h2>
         {transfers.length === 0 ? (
-          <div className="mt-3 rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 p-6 text-center">
-            <p className="text-2xl">🎉</p>
-            <p className="mt-1 font-medium text-emerald-800">All settled up!</p>
+          <div className="receipt-card receipt-lined mt-4 p-8 pb-9 text-center">
+            <span className="stamp">all settled ✓</span>
+            <p className="mt-3 font-mono text-xs text-stone-400">
+              nothing to transfer right now
+            </p>
           </div>
         ) : (
-          <ul className="mt-3 space-y-2">
+          <ul className="mt-4 space-y-2">
             {transfers.map((t, i) => (
               <li
                 key={i}
-                className="flex items-center justify-between rounded-xl border border-stone-200/70 bg-white px-4 py-3 shadow-sm"
+                className="paper-card flex items-center justify-between px-4 py-3"
               >
                 <span className="text-sm">
                   <strong>{nameOf.get(t.fromId)}</strong>
-                  <span className="mx-1.5 inline-block -translate-y-[1px] text-emerald-600">
+                  <span className="mx-2 inline-block -translate-y-[1px] font-mono text-accent">
                     ⟶
                   </span>
                   <strong>{nameOf.get(t.toId)}</strong>
                 </span>
-                <span className="rounded-md bg-emerald-600 px-2.5 py-1 text-sm font-semibold tabular-nums text-white">
+                <span className="border border-accent-strong/60 px-2 py-0.5 font-mono text-sm font-semibold tabular-nums text-accent-strong">
                   {formatCents(t.amountCents)}
                 </span>
               </li>
@@ -160,89 +193,103 @@ export default async function EventPage({
         )}
       </section>
 
-      <section className="mt-10 pb-16">
-        <h2 className="font-semibold">
-          Expenses{" "}
-          <span className="ml-1 text-sm font-normal text-stone-400">
-            {expenseRows.length > 0 && `${expenseRows.length}`}
-          </span>
+      {/* receipts */}
+      <section className="mt-12">
+        <h2 className="label-mono border-b border-foreground/15 pb-2 text-stone-400">
+          Receipts
         </h2>
         {expenseRows.length === 0 ? (
-          <div className="mt-3 rounded-2xl border border-dashed border-stone-300 p-8 text-center text-sm text-stone-500">
-            No expenses yet — add the first receipt!
+          <div className="mt-4 border border-dashed border-foreground/25 p-10 text-center">
+            <p className="font-medium text-stone-500">No receipts yet.</p>
+            <Link
+              href={`/e/${token}/expenses/new`}
+              className="label-mono mt-2 inline-block text-accent-strong hover:underline"
+            >
+              Add the first one →
+            </Link>
           </div>
         ) : (
-          <ul className="mt-3 space-y-3">
-            {expenseRows.map(({ expense, items }) => (
-              <li
-                key={expense.id}
-                className="rounded-2xl border border-stone-200/70 bg-white p-5 shadow-sm transition hover:border-stone-300"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-                  <div className="min-w-0">
-                    <p className="font-semibold">{expense.description || "Untitled"}</p>
-                    <p className="mt-0.5 text-xs text-stone-400">
-                      paid by <span className="text-stone-500">{nameOf.get(expense.payerId)}</span>{" "}
-                      · {MODE_LABELS[expense.splitMode]}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-lg font-bold tabular-nums">
-                      {formatCents(expense.totalCents)}
-                    </span>
-                    <Link
-                      href={`/e/${token}/expenses/${expense.id}/edit`}
-                      aria-label="Edit expense"
-                      className="rounded-lg px-2 py-1 text-xs text-stone-500 transition hover:bg-stone-100 hover:text-stone-700"
-                    >
-                      Edit
-                    </Link>
-                    <form action={deleteExpenseAction}>
-                      <input type="hidden" name="token" value={token} />
-                      <input type="hidden" name="expenseId" value={expense.id} />
-                      <button
-                        type="submit"
-                        className="rounded-lg px-2 py-1 text-xs text-red-400 transition hover:bg-red-50 hover:text-red-600"
-                      >
-                        Delete
-                      </button>
-                    </form>
-                  </div>
-                </div>
-                {items.length > 0 && (
-                  <ul className="mt-3 divide-y divide-stone-100 border-t border-stone-100 pt-1 text-sm">
-                    {items.map(({ item, participantIds }) => (
-                      <li key={item.id} className="flex justify-between gap-4 py-1.5">
-                        <span className="min-w-0 truncate">
-                          {item.name}
-                          <span className="ml-2 text-xs text-stone-400">
-                            {participantIds.map((id) => nameOf.get(id)).join(", ")}
-                          </span>
-                        </span>
-                        <span className="tabular-nums text-stone-600">
-                          {formatCents(item.amountCents)}
-                        </span>
-                      </li>
-                    ))}
-                    {(expense.taxCents > 0 || expense.tipCents > 0) && (
-                      <li className="flex justify-between gap-4 py-1.5 text-xs text-stone-400">
-                        <span>
-                          {[
-                            expense.taxCents > 0 &&
-                              `tax ${formatCents(expense.taxCents)}`,
-                            expense.tipCents > 0 &&
-                              `tip ${formatCents(expense.tipCents)}`,
-                          ]
-                            .filter(Boolean)
-                            .join(" · ")}
-                        </span>
-                        <span className="tabular-nums"></span>
-                      </li>
+          <ul className="mt-6 space-y-7">
+            {expenseRows.map(({ expense, items }, idx) => {
+              const tilt =
+                ["sm:-rotate-[0.4deg]", "", "sm:rotate-[0.4deg]"][idx % 3];
+              return (
+                <li key={expense.id} className={`${tilt}`}>
+                  <article className="receipt-card receipt-edge receipt-lined group p-5 pb-7 transition-transform duration-200 sm:p-6 sm:pb-8">
+                    <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+                      <div className="min-w-0">
+                        <h3 className="text-lg font-semibold tracking-tight">
+                          {expense.description || "Untitled"}
+                        </h3>
+                        <p className="label-mono mt-1 text-stone-400">
+                          paid by {nameOf.get(expense.payerId)} ·{" "}
+                          {MODE_LABELS[expense.splitMode]}
+                        </p>
+                      </div>
+                      <span className="font-mono text-xl font-bold tracking-tight tabular-nums">
+                        {formatCents(expense.totalCents)}
+                      </span>
+                    </div>
+
+                    {items.length > 0 && (
+                      <>
+                        <div className="rule-dashed mt-4" />
+                        <ul className="mt-2 space-y-1.5 font-mono text-[13px] tabular-nums">
+                          {items.map(({ item, participantIds }) => (
+                            <li key={item.id} className="flex items-baseline gap-2">
+                              <span className="shrink-0">
+                                {item.name}
+                                {participantIds.length > 0 && (
+                                  <span className="ml-2 text-[11px] text-stone-400">
+                                    ({participantIds.map((id) => nameOf.get(id)).join(", ")})
+                                  </span>
+                                )}
+                              </span>
+                              <span className="leader-dots" />
+                              <span>{formatCents(item.amountCents)}</span>
+                            </li>
+                          ))}
+                          {(expense.taxCents > 0 || expense.tipCents > 0) && (
+                            <li className="flex items-baseline gap-2 pt-0.5 text-[11px] text-stone-400">
+                              <span>
+                                {[
+                                  expense.taxCents > 0 &&
+                                    `tax ${formatCents(expense.taxCents)}`,
+                                  expense.tipCents > 0 &&
+                                    `tip ${formatCents(expense.tipCents)}`,
+                                ]
+                                  .filter(Boolean)
+                                  .join(" · ")}
+                              </span>
+                              <span className="leader-dots" />
+                            </li>
+                          )}
+                        </ul>
+                      </>
                     )}
-                  </ul>
-                )}
-              </li>
-            ))}
+
+                    <div className="mt-4 flex gap-1 opacity-60 transition group-hover:opacity-100">
+                      <Link
+                        href={`/e/${token}/expenses/${expense.id}/edit`}
+                        className="label-mono px-1 py-0.5 transition hover:text-accent-strong hover:underline"
+                      >
+                        Edit
+                      </Link>
+                      <form action={deleteExpenseAction}>
+                        <input type="hidden" name="token" value={token} />
+                        <input type="hidden" name="expenseId" value={expense.id} />
+                        <button
+                          type="submit"
+                          className="label-mono px-1 py-0.5 transition hover:text-red-600 hover:underline"
+                        >
+                          Delete
+                        </button>
+                      </form>
+                    </div>
+                  </article>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
