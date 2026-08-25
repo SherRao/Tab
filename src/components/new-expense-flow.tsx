@@ -29,23 +29,26 @@ export default function NewExpenseFlow({
   participants,
   editorInitial,
 }: NewExpenseFlowProps) {
-const [initial, setInitial] = useState<Parameters<typeof ExpenseEditor>[0]["initial"]>(
-  editorInitial ?? {
-    description: "",
-    payerId: undefined,
-    items: [{ name: "", amount: "", participantIds: [] }],
-    tax: "",
-    tip: "",
-    total: "",
-    splitMode: "itemized",
-    evenParticipantIds: [],
-    groupIds: undefined,
-  }
-);
+  const [initial, setInitial] = useState<Parameters<typeof ExpenseEditor>[0]["initial"]>(
+    editorInitial ?? {
+      description: "",
+      payerId: undefined,
+      items: [{ name: "", amount: "", participantIds: [] }],
+      tax: "",
+      tip: "",
+      total: "",
+      splitMode: "itemized",
+      evenParticipantIds: [],
+      groupIds: undefined,
+    },
+  );
   const [stage, setStage] = useState<Stage>("choose");
   const [scanNotice, setScanNotice] = useState<string | null>(null);
 
-  function applyDraft(draft: ReceiptDraft, outcome: Exclude<ScanOutcome, { status: "error" }>["status"]) {
+  function applyDraft(
+    draft: ReceiptDraft,
+    outcome: Exclude<ScanOutcome, { status: "error" }>["status"],
+  ) {
     const scannedItems: EditorItem[] = draft.items.map((i) => ({
       name: i.name,
       amount: (i.amountCents / 100).toFixed(2),
@@ -54,7 +57,8 @@ const [initial, setInitial] = useState<Parameters<typeof ExpenseEditor>[0]["init
     setInitial({
       description: "",
       payerId: undefined,
-      items: scannedItems.length > 0 ? scannedItems : [{ name: "", amount: "", participantIds: [] }],
+      items:
+        scannedItems.length > 0 ? scannedItems : [{ name: "", amount: "", participantIds: [] }],
       tax: draft.taxCents ? (draft.taxCents / 100).toFixed(2) : "",
       tip: draft.tipCents ? (draft.tipCents / 100).toFixed(2) : "",
       total: draft.totalCents ? (draft.totalCents / 100).toFixed(2) : "",
@@ -79,11 +83,7 @@ const [initial, setInitial] = useState<Parameters<typeof ExpenseEditor>[0]["init
     return (
       <div className="space-y-4">
         <ScanReceipt onDone={handleOutcome} onCancel={() => setStage("editor")} />
-        <button
-          type="button"
-          onClick={() => setStage("editor")}
-          className="btn-ghost w-full"
-        >
+        <button type="button" onClick={() => setStage("editor")} className="btn-ghost w-full">
           Skip — type it in manually
         </button>
       </div>

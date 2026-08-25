@@ -17,8 +17,7 @@ const AMOUNT_RE = /(?:[$€£])?\s*(\d{1,3}(?:,\d{3})+\.\d{2}|\d+[.,]\d{2})(?!\d
 const SUBTOTAL_RE = /^sub\s?tot/i;
 const TAX_RE = /^(?:sales\s)?tax\b|^imposta\b/i;
 const TIP_RE = /^(?:suggested\s+)?tip\b|^gratuity\b|^servizio\b|^service\b/i;
-const TOTAL_RE =
-  /^total\b|^balance\s?due\b|^amount\s?due\b|^due\b|^totale\b|^grand\s?total\b/i;
+const TOTAL_RE = /^total\b|^balance\s?due\b|^amount\s?due\b|^due\b|^totale\b|^grand\s?total\b/i;
 const IGNORE_RE =
   /^(?:cash|change|visa|master(?:card)?|amex|discover|debit|credit|card|thank|order|table|check|server|guest|receipt|store|paid)\b/i;
 

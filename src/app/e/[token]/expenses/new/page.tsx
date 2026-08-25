@@ -4,11 +4,7 @@ import NewExpenseFlow from "@/components/new-expense-flow";
 import type { EditorParticipant } from "@/components/expense-editor";
 import Link from "next/link";
 
-export default async function NewExpensePage({
-  params,
-}: {
-  params: Promise<{ token: string }>;
-}) {
+export default async function NewExpensePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const detail = await getEventByToken(token);
   if (!detail) notFound();
@@ -28,17 +24,21 @@ export default async function NewExpensePage({
       </Link>
       <h1 className="display mt-3 text-4xl sm:text-5xl">New receipt</h1>
       <div className="mt-8 pb-4">
-        <NewExpenseFlow token={token} participants={editorParticipants} editorInitial={{
-    description: "",
-    payerId: undefined,
-    items: [],
-    tax: "",
-    tip: "",
-    total: "",
-    splitMode: "itemized",
-    evenParticipantIds: [],
-    groupIds: [],
-  }} />
+        <NewExpenseFlow
+          token={token}
+          participants={editorParticipants}
+          editorInitial={{
+            description: "",
+            payerId: undefined,
+            items: [],
+            tax: "",
+            tip: "",
+            total: "",
+            splitMode: "itemized",
+            evenParticipantIds: [],
+            groupIds: [],
+          }}
+        />
       </div>
     </main>
   );

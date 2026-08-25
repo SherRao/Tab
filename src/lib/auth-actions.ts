@@ -52,15 +52,25 @@ export async function requestSignInAction(formData: FormData) {
  */
 export async function completeSignUpAction(formData: FormData): Promise<void> {
   const token = String(formData.get("token") ?? "");
-  const username = String(formData.get("username") ?? "").trim().toLowerCase();
+  const username = String(formData.get("username") ?? "")
+    .trim()
+    .toLowerCase();
   const displayName = String(formData.get("displayName") ?? "").trim();
   const next = String(formData.get("next") ?? "");
 
   if (!/^[a-z0-9_]{2,24}$/.test(username)) {
-    redirect("/auth/signup?error=username&token=" + encodeURIComponent(token) + (next ? `&next=${encodeURIComponent(next)}` : ""));
+    redirect(
+      "/auth/signup?error=username&token=" +
+        encodeURIComponent(token) +
+        (next ? `&next=${encodeURIComponent(next)}` : ""),
+    );
   }
   if (!displayName || displayName.length > 60) {
-    redirect("/auth/signup?error=name&token=" + encodeURIComponent(token) + (next ? `&next=${encodeURIComponent(next)}` : ""));
+    redirect(
+      "/auth/signup?error=name&token=" +
+        encodeURIComponent(token) +
+        (next ? `&next=${encodeURIComponent(next)}` : ""),
+    );
   }
 
   // Check username availability before consuming the token so the person can
@@ -70,7 +80,11 @@ export async function completeSignUpAction(formData: FormData): Promise<void> {
     .from(users)
     .where(eq(users.username, username));
   if (nameTaken) {
-    redirect("/auth/signup?error=username&token=" + encodeURIComponent(token) + (next ? `&next=${encodeURIComponent(next)}` : ""));
+    redirect(
+      "/auth/signup?error=username&token=" +
+        encodeURIComponent(token) +
+        (next ? `&next=${encodeURIComponent(next)}` : ""),
+    );
   }
 
   const consumed = await consumeLoginToken(token);

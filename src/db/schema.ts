@@ -134,9 +134,7 @@ export const participantClaims = sqliteTable(
     requesterUserId: integer("requester_user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    status: text("status", { enum: CLAIM_STATUSES })
-      .notNull()
-      .default("pending"),
+    status: text("status", { enum: CLAIM_STATUSES }).notNull().default("pending"),
     createdAt: integer("created_at", { mode: "timestamp" })
       .notNull()
       .$defaultFn(() => new Date()),
@@ -167,9 +165,7 @@ export const expenses = sqliteTable(
     taxCents: integer("tax_cents").notNull().default(0),
     tipCents: integer("tip_cents").notNull().default(0),
     totalCents: integer("total_cents").notNull().default(0),
-    splitMode: text("split_mode", { enum: SPLIT_MODES })
-      .notNull()
-      .default("itemized"),
+    splitMode: text("split_mode", { enum: SPLIT_MODES }).notNull().default("itemized"),
     groupIds: text("group_ids", { mode: "json" }).$type<number[] | null>(),
     createdAt: integer("created_at", { mode: "timestamp" })
       .notNull()

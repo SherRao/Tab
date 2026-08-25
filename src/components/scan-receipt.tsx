@@ -117,9 +117,7 @@ export default function ScanReceipt({
               />
             </div>
             <p className="label-mono mt-2 text-center text-stone-500">
-              {phase === "preparing"
-                ? "Preparing scanner…"
-                : `Reading receipt… ${progress}%`}
+              {phase === "preparing" ? "Preparing scanner…" : `Reading receipt… ${progress}%`}
             </p>
           </div>
         )}

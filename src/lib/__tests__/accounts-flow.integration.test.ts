@@ -18,8 +18,7 @@ vi.mock("@/lib/auth", async (importOriginal) => {
   return {
     ...actual,
     requireSession: async () => ({ ...currentUser }),
-    getSessionUser: async () =>
-      currentUser.id ? { ...currentUser } : null,
+    getSessionUser: async () => (currentUser.id ? { ...currentUser } : null),
   };
 });
 
@@ -56,7 +55,10 @@ describe("accounts and participants flow", () => {
   it("creates an owned event with mixed participant states", async () => {
     const { event, participants } = await queries.createEventRecord(
       "Accounts Trip",
-      [{ mode: "guest", name: "Dana" }, { mode: "invite", name: "Carl", email: "carl@test.dev" }],
+      [
+        { mode: "guest", name: "Dana" },
+        { mode: "invite", name: "Carl", email: "carl@test.dev" },
+      ],
       currentUser.id,
     );
     expect(event.ownerId).toBe(currentUser.id);
@@ -71,11 +73,7 @@ describe("accounts and participants flow", () => {
   });
 
   it("adds an account-backed participant only via explicit selection", async () => {
-    const { event } = await queries.createEventRecord(
-      "Search Event",
-      ["A", "B"],
-      currentUser.id,
-    );
+    const { event } = await queries.createEventRecord("Search Event", ["A", "B"], currentUser.id);
 
     // Explicit selection links the account.
     await actions.addParticipantAction(
@@ -115,14 +113,14 @@ describe("accounts and participants flow", () => {
 
   it("claims a guest only after owner approval, keeping balances stable", async () => {
     const { users } = await import("@/db/schema");
-    const [friend] = await dbModule.db
-      .select()
-      .from(users)
-      .where(eq(users.username, "friendtest"));
+    const [friend] = await dbModule.db.select().from(users).where(eq(users.username, "friendtest"));
 
     const { event, participants } = await queries.createEventRecord(
       "Claim Event",
-      [{ mode: "guest", name: "Dana" }, { mode: "guest", name: "Milo" }],
+      [
+        { mode: "guest", name: "Dana" },
+        { mode: "guest", name: "Milo" },
+      ],
       currentUser.id,
     );
     const dana = participants.find((p) => p.name === "Dana")!;
@@ -159,9 +157,7 @@ describe("accounts and participants flow", () => {
     expect(pending).toHaveLength(1);
     approveForm.set("claimId", String(pending[0].id));
     approveForm.set("decision", "approve");
-    await expect(actions.decideClaimAction(approveForm)).rejects.toThrow(
-      /claimError=/,
-    );
+    await expect(actions.decideClaimAction(approveForm)).rejects.toThrow(/claimError=/);
 
     // Owner approves; the guest becomes the friend's account.
     currentUser = {
@@ -187,9 +183,9 @@ describe("accounts and participants flow", () => {
         taxCents: expense.taxCents,
         tipCents: expense.tipCents,
         totalCents: expense.totalCents,
-splitMode: expense.splitMode,
-      groupIds: expense.groupIds ?? undefined,
-      lineItems: items.map((i) => ({
+        splitMode: expense.splitMode,
+        groupIds: expense.groupIds ?? undefined,
+        lineItems: items.map((i) => ({
           name: i.item.name,
           amountCents: i.item.amountCents,
           participantIds: i.participantIds,
@@ -200,4 +196,3 @@ splitMode: expense.splitMode,
     expect([...nets.values()].reduce((a, b) => a + b, 0)).toBe(0);
   });
 });
-

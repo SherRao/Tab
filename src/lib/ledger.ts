@@ -47,10 +47,7 @@ function allocatePositive(total: number, weights: number[]): number[] {
   return out;
 }
 
-export function allocateByWeights(
-  totalCents: number,
-  weights: number[],
-): number[] {
+export function allocateByWeights(totalCents: number, weights: number[]): number[] {
   if (totalCents < 0) {
     return allocatePositive(-totalCents, weights).map((v) => -v);
   }
@@ -58,7 +55,10 @@ export function allocateByWeights(
 }
 
 export function equalSplit(totalCents: number, count: number): number[] {
-  return allocateByWeights(totalCents, Array.from({ length: count }, () => 1));
+  return allocateByWeights(
+    totalCents,
+    Array.from({ length: count }, () => 1),
+  );
 }
 
 interface Consumption {
@@ -103,18 +103,14 @@ function computeConsumption(
   }
   const allIds = participants.map((p) => p.id);
 
-for (const expense of expenses) {
+  for (const expense of expenses) {
     paid.set(expense.payerId, (paid.get(expense.payerId) ?? 0) + expense.totalCents);
 
     // Resolve participant set: use groupIds if set,
     // otherwise fall back to evenParticipantIds, otherwise use all participants
     let participantIds: number[];
     if (expense.groupIds && expense.groupIds.length > 0) {
-      participantIds = allocateByGroupParticipantIds(
-        allIds,
-        groupParticipantMap,
-        expense.groupIds,
-      );
+      participantIds = allocateByGroupParticipantIds(allIds, groupParticipantMap, expense.groupIds);
     } else if (expense.evenParticipantIds && expense.evenParticipantIds.length > 0) {
       participantIds = expense.evenParticipantIds.filter((id) => allIds.includes(id));
     } else {
@@ -122,10 +118,7 @@ for (const expense of expenses) {
     }
 
     if (expense.splitMode === "even" || expense.splitMode === "group") {
-      const ids =
-        expense.splitMode === "group"
-          ? participantIds
-          : participantIds;
+      const ids = expense.splitMode === "group" ? participantIds : participantIds;
       const shares = equalSplit(expense.totalCents, ids.length);
       ids.forEach((id, i) => consumed.set(id, (consumed.get(id) ?? 0) + shares[i]));
       continue;
@@ -155,7 +148,9 @@ for (const expense of expenses) {
       participantIds.forEach((id, i) => consumed.set(id, (consumed.get(id) ?? 0) + allocation[i]));
     }
 
-    participantIds.forEach((id) => consumed.set(id, (consumed.get(id) ?? 0) + (subtotal.get(id) ?? 0)));
+    participantIds.forEach((id) =>
+      consumed.set(id, (consumed.get(id) ?? 0) + (subtotal.get(id) ?? 0)),
+    );
   }
 
   return { paidCents: paid, consumedCents: consumed };

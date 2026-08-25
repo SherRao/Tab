@@ -18,14 +18,14 @@ Creating expenses within events becomes tedious when you need to repeatedly sele
 
 ### Split Mode Behavior with Groups
 
-| Split Mode | Groups Selected | Participants Used |
-|---|---|---|
-| `itemized` | None | All participants (existing behavior) |
-| `itemized` | One or more groups | Participants across selected groups |
-| `even` | None | All participants (existing behavior) |
-| `even` | One or more groups | Participants across selected groups, split equally |
-| `group` | None | All participants (existing "birthday mode") |
-| `group` | One or more groups | Participants across selected groups, split equally |
+| Split Mode | Groups Selected    | Participants Used                                  |
+| ---------- | ------------------ | -------------------------------------------------- |
+| `itemized` | None               | All participants (existing behavior)               |
+| `itemized` | One or more groups | Participants across selected groups                |
+| `even`     | None               | All participants (existing behavior)               |
+| `even`     | One or more groups | Participants across selected groups, split equally |
+| `group`    | None               | All participants (existing "birthday mode")        |
+| `group`    | One or more groups | Participants across selected groups, split equally |
 
 ### Non-Goals
 
@@ -60,11 +60,11 @@ Creating expenses within events becomes tedious when you need to repeatedly sele
 
 ### Data Model Impact
 
-| Table | Change |
-|---|---|
-| `groups` | New: `id`, `eventId`, `name` |
-| `participantGroup` | New: `participantId`, `groupId` (composite PK) |
-| `expenses` | Modified: adds `groupIds` (json array of group IDs) |
+| Table              | Change                                              |
+| ------------------ | --------------------------------------------------- |
+| `groups`           | New: `id`, `eventId`, `name`                        |
+| `participantGroup` | New: `participantId`, `groupId` (composite PK)      |
+| `expenses`         | Modified: adds `groupIds` (json array of group IDs) |
 
 No existing tables are modified beyond the new columns/tables. Previous expenses without `groupIds` continue to work identically to before.
 

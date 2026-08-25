@@ -3,12 +3,7 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { events, participants } from "@/db/schema";
-import {
-  consumeLoginToken,
-  createSession,
-  findUserByEmail,
-  peekLoginToken,
-} from "@/lib/auth";
+import { consumeLoginToken, createSession, findUserByEmail, peekLoginToken } from "@/lib/auth";
 import { linkAccountToParticipant, ParticipantError } from "@/lib/participants";
 
 async function eventPathFor(participantId: number): Promise<string | null> {

@@ -13,6 +13,7 @@ Typing a long receipt by hand is the most tedious part of expense entry and the 
 ## Capabilities
 
 ### New Capabilities
+
 - `receipt-scanning`: Capturing receipt photos, on-device OCR, parsing into an editable expense draft, and graceful failure/fallback behavior.
 
 ### Modified Capabilities

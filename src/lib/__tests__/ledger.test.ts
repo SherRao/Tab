@@ -20,9 +20,7 @@ describe("allocateByWeights", () => {
     for (let trial = 0; trial < 200; trial++) {
       const total = Math.floor(Math.random() * 100000);
       const n = 1 + Math.floor(Math.random() * 8);
-      const weights = Array.from({ length: n }, () =>
-        Math.floor(Math.random() * 10000),
-      );
+      const weights = Array.from({ length: n }, () => Math.floor(Math.random() * 10000));
       const alloc = allocateByWeights(total, weights);
       expect(alloc.reduce((a, b) => a + b, 0)).toBe(total);
     }
@@ -46,32 +44,38 @@ describe("computeNetBalances", () => {
   const carol = P(3, "Carol");
 
   it("single expense: payer who consumed part is owed the rest", () => {
-    const nets = computeNetBalances([alice, bob], [
-      {
-        payerId: 1,
-        taxCents: 0,
-        tipCents: 0,
-        totalCents: 9000,
-        splitMode: "even",
-        evenParticipantIds: [1, 2],
-        lineItems: [],
-      },
-    ]);
+    const nets = computeNetBalances(
+      [alice, bob],
+      [
+        {
+          payerId: 1,
+          taxCents: 0,
+          tipCents: 0,
+          totalCents: 9000,
+          splitMode: "even",
+          evenParticipantIds: [1, 2],
+          lineItems: [],
+        },
+      ],
+    );
     expect(nets.get(1)).toBe(4500);
     expect(nets.get(2)).toBe(-4500);
   });
 
   it("shared $30 line item between two people charges $15 each", () => {
-    const nets = computeNetBalances([alice, bob], [
-      {
-        payerId: 3,
-        taxCents: 0,
-        tipCents: 0,
-        totalCents: 3000,
-        splitMode: "itemized",
-        lineItems: [{ name: "App", amountCents: 3000, participantIds: [1, 2] }],
-      },
-    ]);
+    const nets = computeNetBalances(
+      [alice, bob],
+      [
+        {
+          payerId: 3,
+          taxCents: 0,
+          tipCents: 0,
+          totalCents: 3000,
+          splitMode: "itemized",
+          lineItems: [{ name: "App", amountCents: 3000, participantIds: [1, 2] }],
+        },
+      ],
+    );
     const carolNets = computeNetBalances(
       [alice, bob, carol],
       [
@@ -93,35 +97,41 @@ describe("computeNetBalances", () => {
   });
 
   it("proportional tax allocation: A $60, B $30, tax $9 -> $6 and $3", () => {
-    const nets = computeNetBalances([alice, bob], [
-      {
-        payerId: 1,
-        taxCents: 900,
-        tipCents: 0,
-        totalCents: 9900,
-        splitMode: "itemized",
-        lineItems: [
-          { name: "A food", amountCents: 6000, participantIds: [1] },
-          { name: "B food", amountCents: 3000, participantIds: [2] },
-        ],
-      },
-    ]);
+    const nets = computeNetBalances(
+      [alice, bob],
+      [
+        {
+          payerId: 1,
+          taxCents: 900,
+          tipCents: 0,
+          totalCents: 9900,
+          splitMode: "itemized",
+          lineItems: [
+            { name: "A food", amountCents: 6000, participantIds: [1] },
+            { name: "B food", amountCents: 3000, participantIds: [2] },
+          ],
+        },
+      ],
+    );
     expect(nets.get(1)).toBe(9900 - 6600);
     expect(nets.get(2)).toBe(-3300);
   });
 
   it("even mode divides total equally among chosen participants", () => {
-    const nets = computeNetBalances([alice, bob, carol], [
-      {
-        payerId: 1,
-        taxCents: 0,
-        tipCents: 0,
-        totalCents: 9000,
-        splitMode: "even",
-        evenParticipantIds: [1, 2, 3],
-        lineItems: [],
-      },
-    ]);
+    const nets = computeNetBalances(
+      [alice, bob, carol],
+      [
+        {
+          payerId: 1,
+          taxCents: 0,
+          tipCents: 0,
+          totalCents: 9000,
+          splitMode: "even",
+          evenParticipantIds: [1, 2, 3],
+          lineItems: [],
+        },
+      ],
+    );
     expect(nets.get(1)).toBe(6000);
     expect(nets.get(2)).toBe(-3000);
     expect(nets.get(3)).toBe(-3000);

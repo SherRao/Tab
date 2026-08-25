@@ -23,8 +23,7 @@ export default async function SignUpPage({
     <main className="mx-auto w-full max-w-sm flex-1 px-6 pt-20 pb-20">
       <h1 className="display text-4xl">Create your account</h1>
       <p className="mt-3 leading-relaxed text-stone-600">
-        Signing up as{" "}
-        <span className="font-mono text-sm">{peeked.email}</span>
+        Signing up as <span className="font-mono text-sm">{peeked.email}</span>
       </p>
 
       <form action={completeSignUpAction} className="paper-card mt-8 space-y-4 p-6">

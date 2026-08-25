@@ -31,8 +31,8 @@ export default async function SignInPage({
         <div className="paper-card mt-8 p-6">
           <p className="font-medium">Check your inbox</p>
           <p className="mt-2 font-mono text-xs leading-relaxed text-stone-500">
-            If that address has a Tab account (or is new), a sign-in link is on
-            its way. It expires in 15 minutes.
+            If that address has a Tab account (or is new), a sign-in link is on its way. It expires
+            in 15 minutes.
           </p>
           <Link
             href="/"

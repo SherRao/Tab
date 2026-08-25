@@ -54,27 +54,18 @@ export async function getPendingClaims(eventId: number): Promise<ClaimView[]> {
       requesterDisplayName: users.displayName,
     })
     .from(participantClaims)
-    .innerJoin(
-      participants,
-      eq(participantClaims.participantId, participants.id),
-    )
+    .innerJoin(participants, eq(participantClaims.participantId, participants.id))
     .innerJoin(users, eq(participantClaims.requesterUserId, users.id))
     .where(and(eq(participants.eventId, eventId), eq(participantClaims.status, "pending")))
     .orderBy(asc(participantClaims.id));
 }
 
 /** Whether the given user already has a pending or decided claim on a guest. */
-export async function hasClaimedParticipant(
-  eventId: number,
-  userId: number,
-): Promise<boolean> {
+export async function hasClaimedParticipant(eventId: number, userId: number): Promise<boolean> {
   const [row] = await db
     .select({ id: participantClaims.id })
     .from(participantClaims)
-    .innerJoin(
-      participants,
-      eq(participantClaims.participantId, participants.id),
-    )
+    .innerJoin(participants, eq(participantClaims.participantId, participants.id))
     .where(and(eq(participants.eventId, eventId), eq(participantClaims.requesterUserId, userId)))
     .limit(1);
   return row != null;
@@ -151,7 +142,10 @@ export async function createEventRecord(
   return { event, participants: created };
 }
 
-export async function addParticipantRecord(eventId: number, entry: string | CreateParticipantEntry) {
+export async function addParticipantRecord(
+  eventId: number,
+  entry: string | CreateParticipantEntry,
+) {
   const input: CreateParticipantEntry =
     typeof entry === "string" ? { mode: "guest", name: entry } : entry;
 

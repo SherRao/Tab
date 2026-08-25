@@ -14,8 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Tab — split expenses, not friendships",
-  description:
-    "Track itemized receipts for trips and events, and see exactly who owes whom.",
+  description: "Track itemized receipts for trips and events, and see exactly who owes whom.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

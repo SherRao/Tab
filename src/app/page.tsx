@@ -82,22 +82,14 @@ export default async function HomePage({
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-6">
         <Link href="/" className="flex items-baseline gap-2">
           <span className="font-mono text-lg font-bold tracking-tight">tab.</span>
-          <span className="label-mono hidden text-stone-400 sm:inline">
-            expense ledger
-          </span>
+          <span className="label-mono hidden text-stone-400 sm:inline">expense ledger</span>
         </Link>
         <nav className="flex items-center gap-5">
-          <a
-            href="#how"
-            className="label-mono text-stone-500 transition hover:text-foreground"
-          >
+          <a href="#how" className="label-mono text-stone-500 transition hover:text-foreground">
             How it works ↓
           </a>
           {viewer ? (
-            <Link
-              href="/tabs"
-              className="label-mono text-accent-strong transition hover:underline"
-            >
+            <Link href="/tabs" className="label-mono text-accent-strong transition hover:underline">
               My tabs
             </Link>
           ) : (
@@ -114,18 +106,16 @@ export default async function HomePage({
       {/* hero */}
       <section className="mx-auto grid w-full max-w-6xl gap-12 px-6 pt-10 pb-20 lg:grid-cols-12 lg:gap-8 lg:pt-16">
         <div className="lg:col-span-7">
-          <p className="label-mono text-accent-strong">
-            Receipts in — balances out.
-          </p>
+          <p className="label-mono text-accent-strong">Receipts in — balances out.</p>
           <h1 className="display mt-5 text-6xl sm:text-7xl lg:text-8xl">
             Split the bill.
             <br />
             Keep the receipts<span className="text-accent">.</span>
           </h1>
           <p className="mt-6 max-w-md text-lg leading-relaxed text-stone-600">
-            Add an itemized receipt — or snap a photo of one — tag who got what,
-            and Tab works out exactly who owes whom. No passwords, no spreadsheets,
-            no &ldquo;wait, what do I owe you again?&rdquo;
+            Add an itemized receipt — or snap a photo of one — tag who got what, and Tab works out
+            exactly who owes whom. No passwords, no spreadsheets, no &ldquo;wait, what do I owe you
+            again?&rdquo;
           </p>
 
           {/* create-event form */}
@@ -147,9 +137,7 @@ export default async function HomePage({
                 <div className="mt-4">
                   <span className="label-mono block text-stone-500">
                     Who&apos;s in?{" "}
-                    <span className="text-stone-300">
-                      (@username · email invite · plain name)
-                    </span>
+                    <span className="text-stone-300">(@username · email invite · plain name)</span>
                   </span>
                   <CreateEventPeopleInput />
                 </div>
@@ -166,8 +154,7 @@ export default async function HomePage({
               <div className="py-2 text-center">
                 <p className="font-medium">Sign in to start a tab</p>
                 <p className="mt-2 font-mono text-xs leading-relaxed text-stone-500">
-                  Magic link, no password. You&apos;ll get a shareable link anyone
-                  can view.
+                  Magic link, no password. You&apos;ll get a shareable link anyone can view.
                 </p>
                 <Link
                   href={`/signin?next=${encodeURIComponent("/#start")}`}
@@ -219,7 +206,10 @@ export default async function HomePage({
         <ol className="mt-12 grid gap-10 md:grid-cols-3">
           {[
             ["Name the event", "Trips, dinners, birthdays — anything with a shared bill."],
-            ["Share one link", "Anyone with the link can watch the tab; friends sign in with a magic link to add their share."],
+            [
+              "Share one link",
+              "Anyone with the link can watch the tab; friends sign in with a magic link to add their share.",
+            ],
             ["Settle up", "Watch balances zero out as receipts pile up."],
           ].map(([title, copy], i) => (
             <li key={title}>
@@ -239,9 +229,7 @@ export default async function HomePage({
       <footer className="border-t border-foreground/10">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 px-6 py-8">
           <span className="font-mono text-sm font-bold tracking-tight">tab.</span>
-          <p className="label-mono text-stone-400">
-            Split expenses, not friendships
-          </p>
+          <p className="label-mono text-stone-400">Split expenses, not friendships</p>
         </div>
       </footer>
     </main>

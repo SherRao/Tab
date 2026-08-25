@@ -84,9 +84,7 @@ describe("full event flow", () => {
     form.set("name", "Form Event");
     form.set("participants", "Alice, Bob");
     await actions.createEventAction(form);
-    expect(redirectMock).toHaveBeenCalledWith(
-      expect.stringMatching(/^\/e\/[A-Za-z0-9_-]+$/),
-    );
+    expect(redirectMock).toHaveBeenCalledWith(expect.stringMatching(/^\/e\/[A-Za-z0-9_-]+$/));
   });
 
   it("exploration scenario: one payer, mixed assignments, birthday expense", async () => {
@@ -153,9 +151,7 @@ describe("full event flow", () => {
       { fromId: B, toId: A, amountCents: 2521 },
     ]);
 
-    const birthday = expenseRows.find(
-      (r) => r.expense.description === "Birthday dinner for Bob",
-    )!;
+    const birthday = expenseRows.find((r) => r.expense.description === "Birthday dinner for Bob")!;
     const deleteForm = new FormData();
     deleteForm.set("token", event.shareToken);
     deleteForm.set("expenseId", String(birthday.expense.id));

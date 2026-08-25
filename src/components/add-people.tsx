@@ -26,10 +26,9 @@ function useAccountSearch(query: string, enabled: boolean) {
         return;
       }
       try {
-        const res = await fetch(
-          `/api/accounts/search?q=${encodeURIComponent(query.trim())}`,
-          { signal: controller.signal },
-        );
+        const res = await fetch(`/api/accounts/search?q=${encodeURIComponent(query.trim())}`, {
+          signal: controller.signal,
+        });
         if (!res.ok) throw new Error("search failed");
         const data = (await res.json()) as { accounts: AccountMatch[] };
         setMatches(data.accounts);
@@ -45,7 +44,11 @@ function useAccountSearch(query: string, enabled: boolean) {
   return matches;
 }
 
-function buildChoices(raw: string, matches: AccountMatch[], addedUserIds: Set<number>): EntryChoice[] {
+function buildChoices(
+  raw: string,
+  matches: AccountMatch[],
+  addedUserIds: Set<number>,
+): EntryChoice[] {
   const text = raw.trim();
   if (!text) return [];
   const choices: EntryChoice[] = [];

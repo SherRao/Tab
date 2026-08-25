@@ -15,6 +15,7 @@ Splitting expenses for group trips and events is tedious: one person fronts mone
 ## Capabilities
 
 ### New Capabilities
+
 - `events`: Creating events with participants and sharing them via unguessable links; access semantics for link holders.
 - `expenses`: Itemized receipt entry, split modes, tax/tip allocation, and reconciliation validation.
 - `balances`: Net balance derivation and simplified settlement computation.

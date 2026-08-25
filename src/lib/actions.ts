@@ -156,7 +156,9 @@ export async function saveExpenseAction(token: string, payload: ExpensePayload) 
       totalCents: payload.totalCents,
       splitMode: payload.splitMode,
       groupIds:
-        payload.splitMode === "even" ? payload.groupIds?.filter((id) => validIds.has(id)) : undefined,
+        payload.splitMode === "even"
+          ? payload.groupIds?.filter((id) => validIds.has(id))
+          : undefined,
     })
     .returning();
 
@@ -205,8 +207,7 @@ export async function updateExpenseAction(
       tipCents: payload.tipCents,
       totalCents: payload.totalCents,
       splitMode: payload.splitMode,
-      groupIds:
-        payload.splitMode === "even" ? payload.groupIds ?? undefined : undefined,
+      groupIds: payload.splitMode === "even" ? (payload.groupIds ?? undefined) : undefined,
     })
     .where(eq(expenses.id, expenseId));
 
@@ -266,7 +267,9 @@ export async function requestClaimAction(formData: FormData) {
     redirect(`/e/${token}?claimError=${encodeURIComponent("That participant cannot be claimed")}`);
   }
   if (await findLinkedParticipant(detail.event.id, user.id)) {
-    redirect(`/e/${token}?claimError=${encodeURIComponent("You already participate in this event")}`);
+    redirect(
+      `/e/${token}?claimError=${encodeURIComponent("You already participate in this event")}`,
+    );
   }
 
   try {
@@ -291,7 +294,9 @@ export async function decideClaimAction(formData: FormData) {
 
   const ownerId = await getEventOwnerId(detail.event.id);
   if (ownerId !== user.id) {
-    redirect(`/e/${token}?claimError=${encodeURIComponent("Only the event owner can decide claims")}`);
+    redirect(
+      `/e/${token}?claimError=${encodeURIComponent("Only the event owner can decide claims")}`,
+    );
   }
 
   const [claim] = await db

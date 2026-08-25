@@ -35,7 +35,7 @@ participantGroup: { participantId, groupId }
 
 ```typescript
 // At the start of each expense loop, resolve participantIds:
-let participantIds = allIds;  // default: all participants in event
+let participantIds = allIds; // default: all participants in event
 
 if (expense.groupIds && expense.groupIds.length > 0) {
   // Resolve: collect all participantIds from the selected groups
@@ -57,11 +57,11 @@ if (expense.groupIds && expense.groupIds.length > 0) {
 
 **Split mode interaction:**
 
-| Mode | With groups | Without groups |
-|---|---|---|
-| `itemized` | Per-line assignments use `participantIds` from groups | Existing behavior |
-| `even` | Total divided equally among `participantIds` | Uses `evenParticipantIds` or all participants |
-| `group` | Everyone in `participantIds` splits total equally | "Birthday mode": all participants |
+| Mode       | With groups                                           | Without groups                                |
+| ---------- | ----------------------------------------------------- | --------------------------------------------- |
+| `itemized` | Per-line assignments use `participantIds` from groups | Existing behavior                             |
+| `even`     | Total divided equally among `participantIds`          | Uses `evenParticipantIds` or all participants |
+| `group`    | Everyone in `participantIds` splits total equally     | "Birthday mode": all participants             |
 
 ### D3: Expense Editor UI
 
@@ -76,6 +76,7 @@ Assign to group(s):  □ Group A (Alice, Bob)   □ Group B (Carol, Dave)
 ```
 
 When a group is checked:
+
 - The participant assignment area (line item toggles, even-mode checkboxes) can be
   hidden or disabled, since the group's members are the implicit assignees
 - The UI can show a summary: "Selected groups: Group A + Group B (4 people total)"
@@ -84,6 +85,7 @@ When a group is checked:
 ### D4: Tax/Tip Allocation with Groups
 
 Proportional allocation strategy stays the same, but uses the group-resolved participant set:
+
 - `subtotal` per participant is computed based on their share across line items
 - Tax/tip are allocated proportionally to each participant's subtotal **within the group**
 - If multiple groups are selected, their participant sets are combined first, then allocation proceeds

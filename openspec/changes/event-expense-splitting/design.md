@@ -5,11 +5,13 @@ Greenfield project — no existing code. The proposal defines a Next.js full-sta
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Correct, auditable ledger math: cents-safe arithmetic, balances that sum to zero
 - Derivation-only balances (no stored balance state to fall out of sync)
 - Receipt-entry UX as the core flow, not an afterthought
 
 **Non-Goals:**
+
 - User accounts/auth (future change attaches users to participants)
 - OCR receipt scanning, multi-currency, notifications
 - Minimum-transfer-count optimization beyond greedy (NP-hard; unnecessary)
@@ -17,10 +19,12 @@ Greenfield project — no existing code. The proposal defines a Next.js full-sta
 ## Decisions
 
 ### D1: Stack — Next.js App Router + TypeScript + Drizzle ORM + SQLite
+
 One language across UI and ledger logic; server components for event views, client components for the receipt editor. SQLite keeps local dev frictionless and is sufficient for link-shared events; Drizzle's schema is portable to Postgres later.
-*Alternative considered*: React SPA + separate API — more moving parts for no benefit at this scale.
+_Alternative considered_: React SPA + separate API — more moving parts for no benefit at this scale.
 
 ### D2: Money as integer cents
+
 All amounts stored as integer cents (`INTEGER` columns). Floating point is never used in ledger math. Proportional tax/tip allocation uses largest-remainder rounding so allocated cents always sum exactly to the tax/tip amount.
 
 ### D3: Data model
@@ -51,12 +55,15 @@ stored facts ──▶ consumption(event) ──▶ netBalances(event) ──▶
 Each stage is a pure, unit-testable function taking plain data. `simplify` repeatedly transfers between max creditor and max debtor; ≤ n−1 transfers guaranteed.
 
 ### D5: Tax/tip allocation strategy
+
 Proportional to pre-tax subtotal (matches fairness intuition and receipt reality). No per-item tax entry. Same treatment for tip.
 
 ### D6: Share tokens via `nanoid`
+
 High-entropy random token in the URL path (`/e/<token>`) — unguessable, no auth layer needed. Unknown tokens return 404 without enumeration hints.
 
 ### D7: Reconciliation warning is non-blocking
+
 Line items + tax + tip vs total mismatch shows a visible discrepancy warning but permits saving (receipts are messy; blocking would frustrate entry).
 
 ## Risks / Trade-offs

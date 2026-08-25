@@ -27,10 +27,7 @@ export function appBaseUrl(): string {
   return process.env.NEXT_APP_URL ?? "http://localhost:3000";
 }
 
-export async function createLoginToken(
-  email: string,
-  participantId?: number,
-): Promise<string> {
+export async function createLoginToken(email: string, participantId?: number): Promise<string> {
   const token = generateToken();
   await db.insert(authTokens).values({
     email: normalizeEmail(email),

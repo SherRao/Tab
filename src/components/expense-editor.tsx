@@ -137,8 +137,7 @@ export default function ExpenseEditor({
     }
   }
 
-  const amountInput =
-    "input-ink pl-7 text-right font-mono tabular-nums";
+  const amountInput = "input-ink pl-7 text-right font-mono tabular-nums";
   const activeMode = MODES.find((m) => m.value === splitMode)!;
 
   return (
@@ -190,9 +189,7 @@ export default function ExpenseEditor({
         </div>
 
         <section>
-          <label className="label-mono block text-stone-500">
-            How should this be split?
-          </label>
+          <label className="label-mono block text-stone-500">How should this be split?</label>
           <div className="mt-2 grid grid-cols-3 gap-2">
             {MODES.map((m) => (
               <button
@@ -212,9 +209,7 @@ export default function ExpenseEditor({
                 >
                   {m.label}
                 </span>
-                <span className="mt-1 block text-[11px] leading-snug text-stone-400">
-                  {m.hint}
-                </span>
+                <span className="mt-1 block text-[11px] leading-snug text-stone-400">{m.hint}</span>
               </button>
             ))}
           </div>
@@ -351,7 +346,7 @@ export default function ExpenseEditor({
                   checked={groupIds.includes(p.id)}
                   onChange={(e) =>
                     setGroupIds(
-                      e.target.checked ? [...groupIds, p.id] : groupIds.filter((id) => id !== p.id)
+                      e.target.checked ? [...groupIds, p.id] : groupIds.filter((id) => id !== p.id),
                     )
                   }
                   className="rounded border-accent-strong"
@@ -402,16 +397,16 @@ export default function ExpenseEditor({
 
         {computed.discrepancy !== 0 && (
           <p className="border-l-4 border-l-amber-400 bg-amber-50 px-4 py-3 font-mono text-xs leading-relaxed text-amber-800">
-            Items ({formatMoney(computed.itemsSum)}) + tax + tip ={" "}
-            {formatMoney(computed.expected)}, but the total you entered is{" "}
-            {formatMoney(toCents(total))} ({computed.discrepancy > 0 ? "+" : ""}
+            Items ({formatMoney(computed.itemsSum)}) + tax + tip = {formatMoney(computed.expected)},
+            but the total you entered is {formatMoney(toCents(total))} (
+            {computed.discrepancy > 0 ? "+" : ""}
             {formatMoney(computed.discrepancy)}). You can still save.
           </p>
         )}
         {splitMode === "itemized" && computed.unassigned > 0 && (
           <p className="font-mono text-xs text-amber-700">
-            ! {computed.unassigned} line item{computed.unassigned > 1 ? "s" : ""}{" "}
-            ha{computed.unassigned > 1 ? "ve" : "s"} no assignees yet.
+            ! {computed.unassigned} line item{computed.unassigned > 1 ? "s" : ""} ha
+            {computed.unassigned > 1 ? "ve" : "s"} no assignees yet.
           </p>
         )}
       </div>
@@ -425,11 +420,7 @@ export default function ExpenseEditor({
         >
           {saving ? "Saving…" : expenseId ? "Save changes" : "Save receipt"}
         </button>
-        <button
-          type="button"
-          onClick={() => router.push(`/e/${token}`)}
-          className="btn-ghost"
-        >
+        <button type="button" onClick={() => router.push(`/e/${token}`)} className="btn-ghost">
           Cancel
         </button>
       </div>

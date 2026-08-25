@@ -16,10 +16,7 @@ export default async function TabsPage() {
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-6 pt-8 pb-20">
       <header className="flex items-baseline justify-between gap-3">
-        <Link
-          href="/"
-          className="label-mono text-stone-400 transition hover:text-foreground"
-        >
+        <Link href="/" className="label-mono text-stone-400 transition hover:text-foreground">
           ← new tab
         </Link>
       </header>

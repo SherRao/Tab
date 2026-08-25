@@ -11,13 +11,11 @@ function toEditorInitial(draft: ReturnType<typeof parseReceipt>) {
   return {
     description: "",
     payerId: undefined,
-    items: draft.items.map(
-      (i): EditorItem => ({
-        name: i.name,
-        amount: (i.amountCents / 100).toFixed(2),
-        participantIds: [],
-      }),
-    ),
+    items: draft.items.map((i): EditorItem => ({
+      name: i.name,
+      amount: (i.amountCents / 100).toFixed(2),
+      participantIds: [],
+    })),
     tax: draft.taxCents ? (draft.taxCents / 100).toFixed(2) : "",
     tip: draft.tipCents ? (draft.tipCents / 100).toFixed(2) : "",
     total: draft.totalCents ? (draft.totalCents / 100).toFixed(2) : "",
@@ -46,9 +44,7 @@ describe("scanned draft feeds the expense editor", () => {
     for (const name of ["clean.txt", "no-tip.txt", "comma-decimal.txt", "total-named-items.txt"]) {
       const draft = parseReceipt(fixture(name));
       const sum =
-        draft.items.reduce((a, b) => a + b.amountCents, 0) +
-        draft.taxCents +
-        draft.tipCents;
+        draft.items.reduce((a, b) => a + b.amountCents, 0) + draft.taxCents + draft.tipCents;
       expect(Math.abs(sum - draft.totalCents)).toBeLessThanOrEqual(2);
     }
   });

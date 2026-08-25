@@ -5,11 +5,13 @@ The app has a working manual expense editor (`ExpenseEditor`) that accepts an `i
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Scan → review → save feels faster than typing, or it's not worth having
 - Parser is a pure, fixture-testable function; OCR engine is an implementation detail behind it
 - Zero image data leaves the device; no new server surface
 
 **Non-Goals:**
+
 - Server-side OCR or LLM vision providers (future change can slot in behind the parser interface)
 - Image storage / receipt archive attachments
 - Multi-receipt or multi-page scanning; non-English receipts beyond what Tesseract's eng model handles
@@ -17,6 +19,7 @@ The app has a working manual expense editor (`ExpenseEditor`) that accepts an `i
 ## Decisions
 
 ### D1: Tesseract.js v6, lazy-loaded
+
 The scan screen dynamically `import`s Tesseract so the ~few-MB WASM/worker assets load only when a user first scans; browser caches them afterward. Manual-entry users never pay the cost.
 
 ### D2: Pipeline: preprocess → OCR → parse → draft
@@ -30,19 +33,24 @@ photo ─▶ canvas preprocess ─▶ Tesseract.recognize ─▶ parseReceipt(te
 Preprocessing via canvas: longest edge scaled to ≤1600px, grayscale + contrast boost. This materially improves Tesseract accuracy on phone photos and bounds WASM memory use on mobile Safari.
 
 ### D3: Parser as pure function with typed draft
+
 `parseReceipt(text: string): ReceiptDraft` where `ReceiptDraft = { items: {name, amountCents}[], taxCents, tipCents, totalCents, confidence }`. Heuristics:
+
 - Amount regex: `-?\$?\s?\d{1,6}[.,]\d{2}\b` (rightmost match per line is the price; text left of it is the item name).
-- Classification by keyword: `/^sub ?total/i` (kept as reference, not an item), `/tax/i`, `/tip|gratuity/i`, `/total|balance due/i` (grand total = the *last* total-labeled line; `subtotal` excluded).
+- Classification by keyword: `/^sub ?total/i` (kept as reference, not an item), `/tax/i`, `/tip|gratuity/i`, `/total|balance due/i` (grand total = the _last_ total-labeled line; `subtotal` excluded).
 - Lines without a parseable amount are ignored (headers, store name, card info).
 - `confidence`: fraction of expected structure found (has items, has total, Σitems+tax+tip ≈ total). Drafts with zero items and no total count as failures (drives the fallback UX).
 
 ### D4: Cross-check drives soft confidence, not blocking
+
 If Σitems + tax + tip ≠ total, the draft still pre-fills — the existing non-blocking reconciliation warning in the editor surfaces the discrepancy. Scanning and reconciliation stay independent concerns.
 
 ### D5: Capture UX
+
 Single "Scan receipt" button on the new-expense screen. On phones, an `<input type="file" accept="image/*" capture="environment">` opens the camera; on desktop the same input opens the file picker. After OCR: editor opens pre-filled with a dismissible "scanned from receipt — please review" banner; "Re-scan" returns to the capture step.
 
 ### D6: No image persistence
+
 The image lives in an object URL for the duration of the scan, is drawn to the preprocess canvas, then revoked. Nothing is sent to the server; nothing enters the DB.
 
 ## Risks / Trade-offs

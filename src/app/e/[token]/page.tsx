@@ -77,17 +77,12 @@ export default async function EventPage({
   }));
   const nets = computeNetBalances(people, ledgerExpenses);
   const transfers = simplifyDebts(nets);
-  const nameOf = new Map(
-    people.map((p) => [p.id, p.userDisplayName ?? p.name]),
-  );
+  const nameOf = new Map(people.map((p) => [p.id, p.userDisplayName ?? p.name]));
   const grandTotal = expenseRows.reduce((sum, r) => sum + r.expense.totalCents, 0);
   const unassignedWarnings = expenseRows.flatMap(({ expense, items }) =>
     items
       .filter((i) => i.participantIds.length === 0)
-      .map(
-        (i) =>
-          `“${i.item.name}” in “${expense.description || "Untitled"}” has no assignees`,
-      ),
+      .map((i) => `“${i.item.name}” in “${expense.description || "Untitled"}” has no assignees`),
   );
 
   return (
@@ -95,16 +90,10 @@ export default async function EventPage({
       {/* header */}
       <header>
         <div className="flex items-baseline justify-between gap-3">
-          <Link
-            href="/"
-            className="label-mono text-stone-400 transition hover:text-foreground"
-          >
+          <Link href="/" className="label-mono text-stone-400 transition hover:text-foreground">
             ← new tab
           </Link>
-          <Link
-            href={`/e/${token}/expenses/new`}
-            className="btn-ink px-4 py-2.5"
-          >
+          <Link href={`/e/${token}/expenses/new`} className="btn-ink px-4 py-2.5">
             + Add expense
           </Link>
         </div>
@@ -149,9 +138,7 @@ export default async function EventPage({
 
       {/* balances */}
       <section className="mt-12">
-        <h2 className="label-mono border-b border-foreground/15 pb-2 text-stone-400">
-          Balances
-        </h2>
+        <h2 className="label-mono border-b border-foreground/15 pb-2 text-stone-400">Balances</h2>
         <ul className="divide-y divide-dashed divide-foreground/10">
           {people.map((p) => {
             const net = nets.get(p.id) ?? 0;
@@ -167,11 +154,7 @@ export default async function EventPage({
                   <span className="flex min-w-0 items-center gap-2.5">
                     <span
                       className={`h-2 w-2 shrink-0 rounded-full ${
-                        net > 0
-                          ? "bg-accent"
-                          : net < 0
-                            ? "bg-orange-500"
-                            : "bg-stone-300"
+                        net > 0 ? "bg-accent" : net < 0 ? "bg-orange-500" : "bg-stone-300"
                       }`}
                     />
                     <span className="truncate font-medium">{nameOf.get(p.id)}</span>
@@ -202,8 +185,7 @@ export default async function EventPage({
                     {pendingByParticipant.has(p.id) ? (
                       <span className="label-mono text-[11px] text-stone-400">
                         claim requested — waiting on{" "}
-                        {pendingByParticipant.get(p.id)?.requesterDisplayName ===
-                        viewer.displayName
+                        {pendingByParticipant.get(p.id)?.requesterDisplayName === viewer.displayName
                           ? "the owner"
                           : "owner approval"}
                       </span>
@@ -248,8 +230,7 @@ export default async function EventPage({
           </h2>
           <ul className="mt-3 space-y-2">
             {pendingClaims.map((claim) => {
-              const guestName =
-                people.find((p) => p.id === claim.participantId)?.name ?? "?";
+              const guestName = people.find((p) => p.id === claim.participantId)?.name ?? "?";
               return (
                 <li
                   key={claim.id}
@@ -298,23 +279,16 @@ export default async function EventPage({
 
       {/* settle up */}
       <section className="mt-12">
-        <h2 className="label-mono border-b border-foreground/15 pb-2 text-stone-400">
-          Settle up
-        </h2>
+        <h2 className="label-mono border-b border-foreground/15 pb-2 text-stone-400">Settle up</h2>
         {transfers.length === 0 ? (
           <div className="receipt-card receipt-lined mt-4 p-8 pb-9 text-center">
             <span className="stamp">all settled ✓</span>
-            <p className="mt-3 font-mono text-xs text-stone-400">
-              nothing to transfer right now
-            </p>
+            <p className="mt-3 font-mono text-xs text-stone-400">nothing to transfer right now</p>
           </div>
         ) : (
           <ul className="mt-4 space-y-2">
             {transfers.map((t, i) => (
-              <li
-                key={i}
-                className="paper-card flex items-center justify-between px-4 py-3"
-              >
+              <li key={i} className="paper-card flex items-center justify-between px-4 py-3">
                 <span className="text-sm">
                   <strong>{nameOf.get(t.fromId)}</strong>
                   <span className="mx-2 inline-block -translate-y-[1px] font-mono text-accent">
@@ -333,9 +307,7 @@ export default async function EventPage({
 
       {/* receipts */}
       <section className="mt-12">
-        <h2 className="label-mono border-b border-foreground/15 pb-2 text-stone-400">
-          Receipts
-        </h2>
+        <h2 className="label-mono border-b border-foreground/15 pb-2 text-stone-400">Receipts</h2>
         {expenseRows.length === 0 ? (
           <div className="mt-4 border border-dashed border-foreground/25 p-10 text-center">
             <p className="font-medium text-stone-500">No receipts yet.</p>
@@ -349,8 +321,7 @@ export default async function EventPage({
         ) : (
           <ul className="mt-6 space-y-7">
             {expenseRows.map(({ expense, items }, idx) => {
-              const tilt =
-                ["sm:-rotate-[0.4deg]", "", "sm:rotate-[0.4deg]"][idx % 3];
+              const tilt = ["sm:-rotate-[0.4deg]", "", "sm:rotate-[0.4deg]"][idx % 3];
               return (
                 <li key={expense.id} className={`${tilt}`}>
                   <article className="receipt-card receipt-edge receipt-lined group p-5 pb-7 transition-transform duration-200 sm:p-6 sm:pb-8">
@@ -360,8 +331,7 @@ export default async function EventPage({
                           {expense.description || "Untitled"}
                         </h3>
                         <p className="label-mono mt-1 text-stone-400">
-                          paid by {nameOf.get(expense.payerId)} ·{" "}
-                          {MODE_LABELS[expense.splitMode]}
+                          paid by {nameOf.get(expense.payerId)} · {MODE_LABELS[expense.splitMode]}
                         </p>
                       </div>
                       <span className="font-mono text-xl font-bold tracking-tight tabular-nums">
@@ -391,10 +361,8 @@ export default async function EventPage({
                             <li className="flex items-baseline gap-2 pt-0.5 text-[11px] text-stone-400">
                               <span>
                                 {[
-                                  expense.taxCents > 0 &&
-                                    `tax ${formatCents(expense.taxCents)}`,
-                                  expense.tipCents > 0 &&
-                                    `tip ${formatCents(expense.tipCents)}`,
+                                  expense.taxCents > 0 && `tax ${formatCents(expense.taxCents)}`,
+                                  expense.tipCents > 0 && `tip ${formatCents(expense.tipCents)}`,
                                 ]
                                   .filter(Boolean)
                                   .join(" · ")}
