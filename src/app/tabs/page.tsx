@@ -47,12 +47,12 @@ export default async function TabsPage() {
         {events.length === 0 ? (
           <div className="mt-4 border border-dashed border-foreground/25 p-10 text-center">
             <p className="font-medium text-stone-500">No tabs yet.</p>
-            <Link
+            <a
               href="/#start"
               className="label-mono mt-2 inline-block text-accent-strong hover:underline"
             >
               Start your first one →
-            </Link>
+            </a>
           </div>
         ) : (
           <ul className="divide-y divide-dashed divide-foreground/10">
