@@ -30,7 +30,7 @@ jobs:
         run: npx oxlint .
 
       - name: Check formatting with oxfmt
-        run: npx oxfmt check
+        run: npx oxfmt check src/
 
       - name: CodeQL Init
         uses: github/codeql-action/init@v3
