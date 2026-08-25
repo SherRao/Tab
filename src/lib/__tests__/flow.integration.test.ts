@@ -11,6 +11,27 @@ process.env.DATABASE_URL = `file:${path.join(os.tmpdir(), `flow-test-${Date.now(
 let queries: typeof import("@/lib/queries");
 let actions: typeof import("@/lib/actions");
 let ledger: typeof import("@/lib/ledger");
+let ownerId: number;
+
+// Sign-in as a real seeded account for all action-level gating.
+vi.mock("@/lib/auth", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/auth")>();
+  return {
+    ...actual,
+    requireSession: async () => ({
+      id: ownerId,
+      email: "owner@test.dev",
+      username: "owner",
+      displayName: "Owner",
+    }),
+    getSessionUser: async () => ({
+      id: ownerId,
+      email: "owner@test.dev",
+      username: "owner",
+      displayName: "Owner",
+    }),
+  };
+});
 
 function toLedger(
   detail: NonNullable<Awaited<ReturnType<typeof import("@/lib/queries").getEventByToken>>>,
@@ -40,6 +61,13 @@ beforeAll(async () => {
   queries = await import("@/lib/queries");
   actions = await import("@/lib/actions");
   ledger = await import("@/lib/ledger");
+
+  const schema = await import("@/db/schema");
+  const [user] = await dbModule.db
+    .insert(schema.users)
+    .values({ email: "owner@test.dev", username: "owner", displayName: "Owner" })
+    .returning();
+  ownerId = user.id;
 });
 
 describe("full event flow", () => {
@@ -62,7 +90,7 @@ describe("full event flow", () => {
   });
 
   it("exploration scenario: one payer, mixed assignments, birthday expense", async () => {
-    const event = await queries.createEventRecord("Trip", ["Alice", "Bob", "Carol"]);
+    const { event } = await queries.createEventRecord("Trip", ["Alice", "Bob", "Carol"]);
     const detail0 = await queries.getEventByToken(event.shareToken);
     const [A, B, C] = detail0!.participants.map((p) => p.id);
 
@@ -146,7 +174,7 @@ describe("full event flow", () => {
   });
 
   it("rejects expenses whose payer is not a participant of the event", async () => {
-    const event = await queries.createEventRecord("Guard Test", ["X", "Y"]);
+    const { event } = await queries.createEventRecord("Guard Test", ["X", "Y"]);
     const detail = await queries.getEventByToken(event.shareToken);
     const otherEventPersonId = detail!.participants[0].id + 999;
     await expect(

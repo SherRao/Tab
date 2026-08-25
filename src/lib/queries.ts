@@ -4,24 +4,88 @@ import {
   expenses,
   lineItemShares,
   lineItems,
+  participantClaims,
   participants,
+  users,
 } from "@/db/schema";
-import { asc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import type { CreateParticipantEntry } from "./participants";
+
+export type ParticipantView = typeof participants.$inferSelect & {
+  /** Account display name when linked; null otherwise. */
+  userDisplayName: string | null;
+};
 
 export interface EventDetail {
   event: typeof events.$inferSelect;
-  participants: (typeof participants.$inferSelect)[];
+  participants: ParticipantView[];
 }
 
 export async function getEventByToken(token: string): Promise<EventDetail | null> {
   const [event] = await db.select().from(events).where(eq(events.shareToken, token));
   if (!event) return null;
-  const people = await db
-    .select()
+  const rows = await db
+    .select({ participant: participants, userDisplayName: users.displayName })
     .from(participants)
+    .leftJoin(users, eq(participants.userId, users.id))
     .where(eq(participants.eventId, event.id))
     .orderBy(asc(participants.id));
-  return { event, participants: people };
+  return {
+    event,
+    participants: rows.map((r) => ({ ...r.participant, userDisplayName: r.userDisplayName })),
+  };
+}
+
+export interface ClaimView {
+  id: number;
+  participantId: number;
+  requesterUserId: number;
+  requesterUsername: string;
+  requesterDisplayName: string;
+}
+
+export async function getPendingClaims(eventId: number): Promise<ClaimView[]> {
+  return db
+    .select({
+      id: participantClaims.id,
+      participantId: participantClaims.participantId,
+      requesterUserId: participantClaims.requesterUserId,
+      requesterUsername: users.username,
+      requesterDisplayName: users.displayName,
+    })
+    .from(participantClaims)
+    .innerJoin(
+      participants,
+      eq(participantClaims.participantId, participants.id),
+    )
+    .innerJoin(users, eq(participantClaims.requesterUserId, users.id))
+    .where(and(eq(participants.eventId, eventId), eq(participantClaims.status, "pending")))
+    .orderBy(asc(participantClaims.id));
+}
+
+/** Whether the given user already has a pending or decided claim on a guest. */
+export async function hasClaimedParticipant(
+  eventId: number,
+  userId: number,
+): Promise<boolean> {
+  const [row] = await db
+    .select({ id: participantClaims.id })
+    .from(participantClaims)
+    .innerJoin(
+      participants,
+      eq(participantClaims.participantId, participants.id),
+    )
+    .where(and(eq(participants.eventId, eventId), eq(participantClaims.requesterUserId, userId)))
+    .limit(1);
+  return row != null;
+}
+
+export async function getOwnedEvents(ownerId: number) {
+  return db
+    .select()
+    .from(events)
+    .where(eq(events.ownerId, ownerId))
+    .orderBy(desc(events.createdAt));
 }
 
 export interface ExpenseWithItems {
@@ -66,19 +130,53 @@ export async function getExpenses(eventId: number): Promise<ExpenseWithItems[]> 
   }));
 }
 
-export async function createEventRecord(name: string, participantNames: string[]) {
+export async function createEventRecord(
+  name: string,
+  entries: Array<string | CreateParticipantEntry>,
+  ownerId?: number | null,
+) {
   const { nanoid } = await import("nanoid");
   const [event] = await db
     .insert(events)
-    .values({ name, shareToken: nanoid(16) })
+    .values({ name, shareToken: nanoid(16), ownerId: ownerId ?? null })
     .returning();
-  await db
-    .insert(participants)
-    .values(participantNames.map((n) => ({ eventId: event.id, name: n })));
-  return event;
+
+  const normalized: CreateParticipantEntry[] = entries.map((entry) =>
+    typeof entry === "string" ? { mode: "guest", name: entry } : entry,
+  );
+  const created = [];
+  for (const entry of normalized) {
+    created.push(await addParticipantRecord(event.id, entry));
+  }
+  return { event, participants: created };
 }
 
-export async function addParticipantRecord(eventId: number, name: string) {
-  const [row] = await db.insert(participants).values({ eventId, name }).returning();
+export async function addParticipantRecord(eventId: number, entry: string | CreateParticipantEntry) {
+  const input: CreateParticipantEntry =
+    typeof entry === "string" ? { mode: "guest", name: entry } : entry;
+
+  if (input.mode === "account") {
+    const [row] = await db
+      .insert(participants)
+      .values({ eventId, name: input.name ?? "", userId: input.userId })
+      .returning();
+    return row;
+  }
+  if (input.mode === "invite") {
+    const [row] = await db
+      .insert(participants)
+      .values({
+        eventId,
+        name: input.name ?? "",
+        email: input.email?.trim().toLowerCase(),
+        invitedAt: new Date(),
+      })
+      .returning();
+    return row;
+  }
+  const [row] = await db
+    .insert(participants)
+    .values({ eventId, name: input.name ?? "" })
+    .returning();
   return row;
 }

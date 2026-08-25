@@ -1,4 +1,6 @@
 import { createEventAction } from "@/lib/actions";
+import { getSessionUser } from "@/lib/auth";
+import { CreateEventPeopleInput } from "@/components/add-people";
 import Link from "next/link";
 
 const SAMPLE_RECEIPTS = [
@@ -73,6 +75,7 @@ export default async function HomePage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const { error } = await searchParams;
+  const viewer = await getSessionUser();
   return (
     <main className="flex-1">
       {/* header */}
@@ -83,13 +86,28 @@ export default async function HomePage({
             expense ledger
           </span>
         </Link>
-        <nav>
+        <nav className="flex items-center gap-5">
           <a
             href="#how"
             className="label-mono text-stone-500 transition hover:text-foreground"
           >
             How it works ↓
           </a>
+          {viewer ? (
+            <Link
+              href="/tabs"
+              className="label-mono text-accent-strong transition hover:underline"
+            >
+              My tabs
+            </Link>
+          ) : (
+            <Link
+              href="/signin"
+              className="label-mono text-accent-strong transition hover:underline"
+            >
+              Sign in
+            </Link>
+          )}
         </nav>
       </header>
 
@@ -106,52 +124,59 @@ export default async function HomePage({
           </h1>
           <p className="mt-6 max-w-md text-lg leading-relaxed text-stone-600">
             Add an itemized receipt — or snap a photo of one — tag who got what,
-            and Tab works out exactly who owes whom. No sign-up, no spreadsheets,
+            and Tab works out exactly who owes whom. No passwords, no spreadsheets,
             no &ldquo;wait, what do I owe you again?&rdquo;
           </p>
 
           {/* create-event form */}
           <form action={createEventAction} className="paper-card mt-10 max-w-lg p-6" id="start">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label htmlFor="name" className="label-mono block text-stone-500">
-                  Event name
-                </label>
-                <input
-                  id="name"
-                  name="name"
-                  required
-                  placeholder="Vegas trip…"
-                  className="input-ink mt-1.5"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="participants"
-                  className="label-mono block text-stone-500"
+            {viewer ? (
+              <>
+                <div>
+                  <label htmlFor="name" className="label-mono block text-stone-500">
+                    Event name
+                  </label>
+                  <input
+                    id="name"
+                    name="name"
+                    required
+                    placeholder="Vegas trip…"
+                    className="input-ink mt-1.5"
+                  />
+                </div>
+                <div className="mt-4">
+                  <span className="label-mono block text-stone-500">
+                    Who&apos;s in?{" "}
+                    <span className="text-stone-300">
+                      (@username · email invite · plain name)
+                    </span>
+                  </span>
+                  <CreateEventPeopleInput />
+                </div>
+                {error && (
+                  <p className="mt-4 border border-red-200 bg-red-50 px-3 py-2 font-mono text-xs text-red-700">
+                    Please provide a name and at least two participants.
+                  </p>
+                )}
+                <button type="submit" className="btn-ink mt-5 w-full">
+                  Start a new tab &rarr;
+                </button>
+              </>
+            ) : (
+              <div className="py-2 text-center">
+                <p className="font-medium">Sign in to start a tab</p>
+                <p className="mt-2 font-mono text-xs leading-relaxed text-stone-500">
+                  Magic link, no password. You&apos;ll get a shareable link anyone
+                  can view.
+                </p>
+                <Link
+                  href={`/signin?next=${encodeURIComponent("/#start")}`}
+                  className="btn-ink mt-4 inline-flex w-full justify-center"
                 >
-                  Who&apos;s in?
-                </label>
-                <input
-                  id="participants"
-                  name="participants"
-                  required
-                  placeholder="Alice, Bob, Carol"
-                  className="input-ink mt-1.5"
-                />
+                  Sign in &rarr;
+                </Link>
               </div>
-            </div>
-            {error && (
-              <p className="mt-4 border border-red-200 bg-red-50 px-3 py-2 font-mono text-xs text-red-700">
-                Please provide a name and at least two participants.
-              </p>
             )}
-            <button type="submit" className="btn-ink mt-5 w-full">
-              Start a new tab →
-            </button>
-            <p className="mt-3 text-center font-mono text-[11px] text-stone-400">
-              No sign-up needed — you&apos;ll get a shareable link.
-            </p>
           </form>
         </div>
 
@@ -194,7 +219,7 @@ export default async function HomePage({
         <ol className="mt-12 grid gap-10 md:grid-cols-3">
           {[
             ["Name the event", "Trips, dinners, birthdays — anything with a shared bill."],
-            ["Share one link", "Everyone opens the same tab. No accounts for anybody."],
+            ["Share one link", "Anyone with the link can watch the tab; friends sign in with a magic link to add their share."],
             ["Settle up", "Watch balances zero out as receipts pile up."],
           ].map(([title, copy], i) => (
             <li key={title}>

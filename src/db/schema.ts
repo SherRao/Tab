@@ -1,16 +1,53 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   index,
   integer,
   primaryKey,
   sqliteTable,
   text,
+  uniqueIndex,
 } from "drizzle-orm/sqlite-core";
+
+export const users = sqliteTable(
+  "users",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    email: text("email").notNull(),
+    username: text("username").notNull(),
+    displayName: text("display_name").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (t) => [
+    uniqueIndex("users_email_unique").on(t.email),
+    uniqueIndex("users_username_unique").on(t.username),
+  ],
+);
+
+export const sessions = sqliteTable(
+  "sessions",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (t) => [uniqueIndex("sessions_token_hash_unique").on(t.tokenHash)],
+);
 
 export const events = sqliteTable("events", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),
   shareToken: text("share_token").notNull().unique(),
+  ownerId: integer("owner_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),
@@ -24,11 +61,72 @@ export const participants = sqliteTable(
       .notNull()
       .references(() => events.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
+    userId: integer("user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    email: text("email"),
+    invitedAt: integer("invited_at", { mode: "timestamp" }),
     addedAt: integer("added_at", { mode: "timestamp" })
       .notNull()
       .$defaultFn(() => new Date()),
   },
-  (t) => [index("participants_event_idx").on(t.eventId)],
+  (t) => [
+    index("participants_event_idx").on(t.eventId),
+    uniqueIndex("participants_user_unique")
+      .on(t.userId)
+      .where(sql`user_id is not null`),
+  ],
+);
+
+export const AUTH_TOKEN_PURPOSES = ["signin", "invite"] as const;
+export type AuthTokenPurpose = (typeof AUTH_TOKEN_PURPOSES)[number];
+
+export const authTokens = sqliteTable(
+  "auth_tokens",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    email: text("email").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    purpose: text("purpose", { enum: AUTH_TOKEN_PURPOSES }).notNull(),
+    participantId: integer("participant_id").references(() => participants.id, {
+      onDelete: "cascade",
+    }),
+    expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+    usedAt: integer("used_at", { mode: "timestamp" }),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (t) => [uniqueIndex("auth_tokens_token_hash_unique").on(t.tokenHash)],
+);
+
+export const CLAIM_STATUSES = ["pending", "approved", "denied"] as const;
+export type ClaimStatus = (typeof CLAIM_STATUSES)[number];
+
+export const participantClaims = sqliteTable(
+  "participant_claims",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    participantId: integer("participant_id")
+      .notNull()
+      .references(() => participants.id, { onDelete: "cascade" }),
+    requesterUserId: integer("requester_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    status: text("status", { enum: CLAIM_STATUSES })
+      .notNull()
+      .default("pending"),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+    decidedAt: integer("decided_at", { mode: "timestamp" }),
+  },
+  (t) => [
+    index("participant_claims_participant_idx").on(t.participantId),
+    uniqueIndex("participant_claims_pending_unique")
+      .on(t.participantId, t.requesterUserId)
+      .where(sql`status = 'pending'`),
+  ],
 );
 
 export const SPLIT_MODES = ["itemized", "even", "group"] as const;
@@ -87,15 +185,35 @@ export const lineItemShares = sqliteTable(
   (t) => [primaryKey({ columns: [t.lineItemId, t.participantId] })],
 );
 
-export const eventsRelations = relations(events, ({ many }) => ({
+export const eventsRelations = relations(events, ({ many, one }) => ({
   participants: many(participants),
   expenses: many(expenses),
+  owner: one(users, {
+    fields: [events.ownerId],
+    references: [users.id],
+  }),
 }));
 
 export const participantsRelations = relations(participants, ({ one }) => ({
   event: one(events, {
     fields: [participants.eventId],
     references: [events.id],
+  }),
+  user: one(users, {
+    fields: [participants.userId],
+    references: [users.id],
+  }),
+}));
+
+export const usersRelations = relations(users, ({ many }) => ({
+  ownedEvents: many(events),
+  participations: many(participants),
+}));
+
+export const sessionsRelations = relations(sessions, ({ one }) => ({
+  user: one(users, {
+    fields: [sessions.userId],
+    references: [users.id],
   }),
 }));
 

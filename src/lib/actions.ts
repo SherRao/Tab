@@ -5,42 +5,125 @@ import {
   expenses,
   lineItemShares,
   lineItems,
+  participantClaims,
   SPLIT_MODES,
   type SplitMode,
 } from "@/db/schema";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { and, eq, inArray } from "drizzle-orm";
+import { createEventRecord, getEventByToken } from "./queries";
+import { requireSession, appBaseUrl, createLoginToken } from "./auth";
+import { sendEmail } from "./email";
 import {
-  createEventRecord,
-  addParticipantRecord,
-  getEventByToken,
-} from "./queries";
+  addParticipant as addParticipantRow,
+  findLinkedParticipant,
+  getEventOwnerId,
+  linkAccountToParticipant,
+  ParticipantError,
+  type AddParticipantInput,
+  type CreateParticipantEntry,
+} from "./participants";
 
 export async function createEventAction(formData: FormData) {
+  const user = await requireSession("/");
   const name = String(formData.get("name") ?? "").trim();
-  const raw = String(formData.get("participants") ?? "");
-  const names = raw
-    .split(",")
-    .map((n) => n.trim())
-    .filter(Boolean);
+  const rawJson = String(formData.get("participantsJson") ?? "");
+  const rawLegacy = String(formData.get("participants") ?? "");
 
-  if (!name || names.length < 2) {
+  let entries: CreateParticipantEntry[] = [];
+  if (rawJson) {
+    try {
+      const parsed: unknown = JSON.parse(rawJson);
+      if (!Array.isArray(parsed)) throw new Error("bad payload");
+      entries = parsed.filter(
+        (e): e is CreateParticipantEntry =>
+          typeof e === "object" &&
+          e !== null &&
+          "mode" in e &&
+          ["account", "guest", "invite"].includes(String((e as CreateParticipantEntry).mode)),
+      );
+    } catch {
+      redirect("/?error=1");
+    }
+  } else {
+    entries = rawLegacy
+      .split(",")
+      .map((n) => n.trim())
+      .filter(Boolean)
+      .map((n) => ({ mode: "guest" as const, name: n }));
+  }
+
+  if (!name || entries.length < 2) {
     redirect("/?error=1");
   }
-  const event = await createEventRecord(name, names);
+
+  const { event, participants: created } = await createEventRecord(name, entries, user.id);
+
+  // Send invitation emails for any invited participants created up front.
+  for (const person of created) {
+    if (person.email == null) continue;
+    const token = await createLoginToken(person.email, person.id);
+    await sendEmail({
+      to: person.email,
+      subject: `You're on "${event.name}" — join your tab`,
+      text: invitationEmailBody(event.name, token, `/e/${event.shareToken}`),
+    });
+  }
+
   revalidatePath("/");
+  revalidatePath("/tabs");
   redirect(`/e/${event.shareToken}`);
 }
 
+function invitationEmailBody(eventName: string, token: string, eventPath: string): string {
+  return [
+    `You've been added to "${eventName}" on Tab.`,
+    "",
+    "Open this link to join (it signs you in or creates your account):",
+    `${appBaseUrl()}/auth/verify?token=${token}&next=${encodeURIComponent(eventPath)}`,
+    "",
+    "The link expires in 15 minutes — you can always reach the tab at:",
+    appBaseUrl() + eventPath,
+  ].join("\n");
+}
+
 export async function addParticipantAction(formData: FormData) {
+  await requireSession();
   const token = String(formData.get("token") ?? "");
-  const name = String(formData.get("name") ?? "").trim();
   const detail = await getEventByToken(token);
-  if (detail && name) {
-    await addParticipantRecord(detail.event.id, name);
-    revalidatePath(`/e/${token}`);
+  if (!detail) redirect("/");
+
+  let parsed: CreateParticipantEntry;
+  try {
+    parsed = JSON.parse(String(formData.get("entry") ?? "{}"));
+  } catch {
+    return;
   }
+
+  try {
+    const input: AddParticipantInput =
+      parsed.mode === "account"
+        ? { mode: "account", userId: Number(parsed.userId) }
+        : parsed.mode === "invite"
+          ? { mode: "invite", name: String(parsed.name ?? ""), email: String(parsed.email ?? "") }
+          : { mode: "guest", name: String(parsed.name ?? "") };
+    if (input.mode === "account" && !Number.isInteger(input.userId)) return;
+
+    const row = await addParticipantRow(detail.event.id, input);
+    if (row.email != null && row.invitedAt != null) {
+      const inviteToken = await createLoginToken(row.email, row.id);
+      await sendEmail({
+        to: row.email,
+        subject: `You're on "${detail.event.name}" — join your tab`,
+        text: invitationEmailBody(detail.event.name, inviteToken, `/e/${token}`),
+      });
+    }
+  } catch (e) {
+    if (!(e instanceof ParticipantError)) throw e;
+    redirect(`/e/${token}?addError=${encodeURIComponent(e.message)}`);
+  }
+  revalidatePath(`/e/${token}`);
 }
 
 interface ExpensePayload {
@@ -55,6 +138,7 @@ interface ExpensePayload {
 }
 
 export async function saveExpenseAction(token: string, payload: ExpensePayload) {
+  await requireSession();
   const detail = await getEventByToken(token);
   if (!detail) throw new Error("Event not found");
   if (!SPLIT_MODES.includes(payload.splitMode)) throw new Error("Invalid split mode");
@@ -101,6 +185,7 @@ export async function updateExpenseAction(
   expenseId: number,
   payload: ExpensePayload,
 ) {
+  await requireSession();
   const detail = await getEventByToken(token);
   if (!detail) throw new Error("Event not found");
   const [existing] = await db
@@ -156,6 +241,7 @@ export async function updateExpenseAction(
 }
 
 export async function deleteExpenseAction(formData: FormData) {
+  await requireSession();
   const token = String(formData.get("token") ?? "");
   const expenseId = Number(formData.get("expenseId"));
   const detail = await getEventByToken(token);
@@ -165,4 +251,71 @@ export async function deleteExpenseAction(formData: FormData) {
       .where(and(eq(expenses.id, expenseId), eq(expenses.eventId, detail.event.id)));
     revalidatePath(`/e/${token}`);
   }
+}
+
+/** A signed-in user asks to claim a bare-name guest as themselves. */
+export async function requestClaimAction(formData: FormData) {
+  const user = await requireSession();
+  const token = String(formData.get("token") ?? "");
+  const participantId = Number(formData.get("participantId"));
+  const detail = await getEventByToken(token);
+  if (!detail || !Number.isFinite(participantId)) redirect("/");
+
+  const participant = detail.participants.find((p) => p.id === participantId);
+  if (!participant || participant.userId != null) {
+    redirect(`/e/${token}?claimError=${encodeURIComponent("That participant cannot be claimed")}`);
+  }
+  if (await findLinkedParticipant(detail.event.id, user.id)) {
+    redirect(`/e/${token}?claimError=${encodeURIComponent("You already participate in this event")}`);
+  }
+
+  try {
+    await db.insert(participantClaims).values({
+      participantId,
+      requesterUserId: user.id,
+    });
+  } catch {
+    // Unique pending claim per (participant, requester): already requested.
+  }
+  revalidatePath(`/e/${token}`);
+}
+
+/** Owner approves a pending claim, linking the requester's account. */
+export async function decideClaimAction(formData: FormData) {
+  const user = await requireSession();
+  const token = String(formData.get("token") ?? "");
+  const claimId = Number(formData.get("claimId"));
+  const decision = String(formData.get("decision") ?? "");
+  const detail = await getEventByToken(token);
+  if (!detail || !Number.isFinite(claimId)) redirect("/");
+
+  const ownerId = await getEventOwnerId(detail.event.id);
+  if (ownerId !== user.id) {
+    redirect(`/e/${token}?claimError=${encodeURIComponent("Only the event owner can decide claims")}`);
+  }
+
+  const [claim] = await db
+    .select()
+    .from(participantClaims)
+    .where(and(eq(participantClaims.id, claimId), eq(participantClaims.status, "pending")));
+  if (!claim) redirect(`/e/${token}`);
+
+  if (decision === "approve") {
+    try {
+      await linkAccountToParticipant(claim.participantId, claim.requesterUserId);
+      await db
+        .update(participantClaims)
+        .set({ status: "approved", decidedAt: new Date() })
+        .where(eq(participantClaims.id, claimId));
+    } catch (e) {
+      if (!(e instanceof ParticipantError)) throw e;
+      redirect(`/e/${token}?claimError=${encodeURIComponent(e.message)}`);
+    }
+  } else if (decision === "deny") {
+    await db
+      .update(participantClaims)
+      .set({ status: "denied", decidedAt: new Date() })
+      .where(eq(participantClaims.id, claimId));
+  }
+  revalidatePath(`/e/${token}`);
 }
