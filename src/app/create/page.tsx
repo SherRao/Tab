@@ -1,24 +1,36 @@
 import { createEventAction } from "@/lib/actions";
+import { getSessionUser } from "@/lib/auth";
+import { CreateEventPeopleInput } from "@/components/add-people";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Create a new tab" };
 
-export default function CreatePage() {
+export default async function CreatePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const [{ error }, viewer] = await Promise.all([
+    searchParams,
+    getSessionUser(),
+  ]);
+  if (!viewer) redirect("/signin?next=%2Fcreate");
+
   return (
-    <main className="mx-auto w-full max-w-2xl px-6 pt-8 pb-20">
-      <header className="flex items-center justify-between mb-6">
-        <h1 className="display text-4xl font-bold">Create a new tab</h1>
+    <main className="mx-auto w-full max-w-2xl flex-1 px-6 pt-8 pb-20">
+      <header className="flex items-baseline justify-between gap-3">
         <Link
           href="/"
           className="label-mono text-stone-400 transition hover:text-foreground"
         >
-          ← Back to home
+          ← back home
         </Link>
       </header>
+      <h1 className="display mt-4 text-5xl sm:text-6xl">New tab</h1>
 
-      <form action={createEventAction} className="paper-card mt-10 max-w-lg p-6" id="start">
-        { /* Viewer check would be handled by the action requiring session */ }
+      <form action={createEventAction} className="paper-card mt-8 p-6">
         <div>
           <label htmlFor="name" className="label-mono block text-stone-500">
             Event name
@@ -33,12 +45,18 @@ export default function CreatePage() {
         </div>
         <div className="mt-4">
           <span className="label-mono block text-stone-500">
-            Who's in?{" "}
+            Who&apos;s in?{" "}
             <span className="text-stone-300">(@username · email invite · plain name)</span>
           </span>
+          <CreateEventPeopleInput />
         </div>
+        {error && (
+          <p className="mt-4 border border-red-200 bg-red-50 px-3 py-2 font-mono text-xs text-red-700">
+            Please provide a name and at least two participants.
+          </p>
+        )}
         <button type="submit" className="btn-ink mt-5 w-full">
-          Create tab →
+          Start a new tab &rarr;
         </button>
       </form>
     </main>

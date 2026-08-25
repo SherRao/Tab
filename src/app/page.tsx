@@ -1,7 +1,9 @@
-import { createEventAction } from "@/lib/actions";
 import { getSessionUser } from "@/lib/auth";
-import { CreateEventPeopleInput } from "@/components/add-people";
+import { Reveal } from "@/components/reveal";
 import Link from "next/link";
+import type { CSSProperties } from "react";
+
+const delayStyle = (ms: number) => ({ "--delay": `${ms}ms` }) as CSSProperties;
 
 const SAMPLE_RECEIPTS = [
   {
@@ -47,7 +49,9 @@ function MiniReceipt({
   className?: string;
 }) {
   return (
-    <div className={`receipt-card receipt-edge receipt-lined w-64 p-5 pb-7 ${className}`}>
+    <div
+      className={`receipt-card receipt-edge receipt-lined w-64 translate-y-0 p-5 pb-7 transition-transform duration-300 ease-out hover:-translate-y-1.5 hover:rotate-0 ${className}`}
+    >
       <p className="label-mono text-center text-stone-500">{title}</p>
       <p className="label-mono mt-1 text-center text-stone-400">{date}</p>
       <div className="rule-dashed mt-3" />
@@ -69,12 +73,7 @@ function MiniReceipt({
   );
 }
 
-export default async function HomePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ error?: string }>;
-}) {
-  const { error } = await searchParams;
+export default async function HomePage() {
   const viewer = await getSessionUser();
   return (
     <main className="flex-1">
@@ -100,62 +99,38 @@ export default async function HomePage({
               Sign in
             </Link>
           )}
-          <Link
-            href="/create"
-            className="label-mono text-accent-strong transition hover:underline"
-          >
-            Create a new tab
-          </Link>
         </nav>
       </header>
 
       {/* hero */}
       <section className="mx-auto grid w-full max-w-6xl gap-12 px-6 pt-10 pb-20 lg:grid-cols-12 lg:gap-8 lg:pt-16">
         <div className="lg:col-span-7">
-          <p className="label-mono text-accent-strong">Receipts in — balances out.</p>
-          <h1 className="display mt-5 text-6xl sm:text-7xl lg:text-8xl">
+          <p className="label-mono rise-in text-accent-strong" style={delayStyle(0)}>
+            Receipts in — balances out.
+          </p>
+          <h1
+            className="display rise-in mt-5 text-6xl sm:text-7xl lg:text-8xl"
+            style={delayStyle(90)}
+          >
             Split the bill.
             <br />
             Keep the receipts<span className="text-accent">.</span>
           </h1>
-          <p className="mt-6 max-w-md text-lg leading-relaxed text-stone-600">
+          <p
+            className="rise-in mt-6 max-w-md text-lg leading-relaxed text-stone-600"
+            style={delayStyle(180)}
+          >
             Add an itemized receipt — or snap a photo of one — tag who got what, and Tab works out
             exactly who owes whom. No passwords, no spreadsheets, no &ldquo;wait, what do I owe you
             again?&rdquo;
           </p>
 
-          {/* create-event form */}
-          <form action={createEventAction} className="paper-card mt-10 max-w-lg p-6" id="start">
+          {/* create-event CTA */}
+          <div className="paper-card rise-in mt-10 max-w-lg p-6" id="start" style={delayStyle(280)}>
             {viewer ? (
-              <>
-                <div>
-                  <label htmlFor="name" className="label-mono block text-stone-500">
-                    Event name
-                  </label>
-                  <input
-                    id="name"
-                    name="name"
-                    required
-                    placeholder="Vegas trip…"
-                    className="input-ink mt-1.5"
-                  />
-                </div>
-                <div className="mt-4">
-                  <span className="label-mono block text-stone-500">
-                    Who&apos;s in?{" "}
-                    <span className="text-stone-300">(@username · email invite · plain name)</span>
-                  </span>
-                  <CreateEventPeopleInput />
-                </div>
-                {error && (
-                  <p className="mt-4 border border-red-200 bg-red-50 px-3 py-2 font-mono text-xs text-red-700">
-                    Please provide a name and at least two participants.
-                  </p>
-                )}
-                <button type="submit" className="btn-ink mt-5 w-full">
-                  Start a new tab &rarr;
-                </button>
-              </>
+              <Link href="/create" className="btn-ink w-full justify-center">
+                Start a new tab &rarr;
+              </Link>
             ) : (
               <div className="py-2 text-center">
                 <p className="font-medium">Sign in to start a tab</p>
@@ -163,52 +138,85 @@ export default async function HomePage({
                   Magic link, no password. You&apos;ll get a shareable link anyone can view.
                 </p>
                 <Link
-                  href={`/signin?next=${encodeURIComponent("/#start")}`}
+                  href={`/signin?next=${encodeURIComponent("/create")}`}
                   className="btn-ink mt-4 inline-flex w-full justify-center"
                 >
                   Sign in &rarr;
                 </Link>
               </div>
             )}
-          </form>
+          </div>
         </div>
 
         {/* stacked receipts */}
         <div className="relative hidden min-h-[520px] select-none lg:col-span-5 lg:block">
-          <MiniReceipt {...SAMPLE_RECEIPTS[0]} className="absolute top-0 left-2 -rotate-6" />
-          <MiniReceipt {...SAMPLE_RECEIPTS[1]} className="absolute top-36 right-0 rotate-3" />
-          <MiniReceipt {...SAMPLE_RECEIPTS[2]} className="absolute top-72 left-8 rotate-[-2deg]" />
-          <span className="stamp absolute right-6 bottom-2">settled ✓</span>
+          <div className="rise-in absolute top-0 left-2" style={delayStyle(420)}>
+            <div
+              className="sway"
+              style={{ "--sway-duration": "7s", "--sway-delay": "-2s" } as CSSProperties}
+            >
+              <MiniReceipt {...SAMPLE_RECEIPTS[0]} className="-rotate-6" />
+            </div>
+          </div>
+          <div className="rise-in absolute top-36 right-0" style={delayStyle(540)}>
+            <div
+              className="sway"
+              style={{ "--sway-duration": "9s", "--sway-delay": "-5s" } as CSSProperties}
+            >
+              <MiniReceipt {...SAMPLE_RECEIPTS[1]} className="rotate-3" />
+            </div>
+          </div>
+          <div className="rise-in absolute top-72 left-8" style={delayStyle(660)}>
+            <div
+              className="sway"
+              style={{ "--sway-duration": "8s", "--sway-delay": "-3.5s" } as CSSProperties}
+            >
+              <MiniReceipt {...SAMPLE_RECEIPTS[2]} className="rotate-[-2deg]" />
+            </div>
+          </div>
+          <Reveal variant="stamp" delay={500} className="absolute right-6 bottom-2">
+            <span className="stamp">settled ✓</span>
+          </Reveal>
         </div>
       </section>
 
       {/* features */}
       <section className="border-t border-foreground/10 bg-paper/60">
         <div className="mx-auto w-full max-w-6xl px-6 py-20">
-          <h2 className="display text-4xl sm:text-5xl">Built for the group chat</h2>
+          <Reveal>
+            <h2 className="display text-4xl sm:text-5xl">Built for the group chat</h2>
+          </Reveal>
           <ul className="mt-12 divide-y divide-foreground/10 border-y border-foreground/10">
-            <FeatureRow
-              num="01"
-              title="Itemized to the line"
-              copy="Every taco, every Uber, every round of drinks — assign line items to the people who actually had them."
-            />
-            <FeatureRow
-              num="02"
-              title="Scan, don't type"
-              copy="Photograph the paper receipt and Tab reads the lines, tax and tip right on your device. Nothing leaves your phone."
-            />
-            <FeatureRow
-              num="03"
-              title="Fewest payments possible"
-              copy="Tab nets everything out and suggests the minimum set of transfers so settling up takes minutes, not math."
-            />
+            <Reveal as="li">
+              <FeatureRow
+                num="01"
+                title="Itemized to the line"
+                copy="Every taco, every Uber, every round of drinks — assign line items to the people who actually had them."
+              />
+            </Reveal>
+            <Reveal as="li" delay={120}>
+              <FeatureRow
+                num="02"
+                title="Scan, don't type"
+                copy="Photograph the paper receipt and Tab reads the lines, tax and tip right on your device. Nothing leaves your phone."
+              />
+            </Reveal>
+            <Reveal as="li" delay={240}>
+              <FeatureRow
+                num="03"
+                title="Fewest payments possible"
+                copy="Tab nets everything out and suggests the minimum set of transfers so settling up takes minutes, not math."
+              />
+            </Reveal>
           </ul>
         </div>
       </section>
 
       {/* how it works */}
       <section id="how" className="mx-auto w-full max-w-6xl px-6 py-20">
-        <h2 className="display text-4xl sm:text-5xl">How it works</h2>
+        <Reveal>
+          <h2 className="display text-4xl sm:text-5xl">How it works</h2>
+        </Reveal>
         <ol className="mt-12 grid gap-10 md:grid-cols-3">
           {[
             ["Name the event", "Trips, dinners, birthdays — anything with a shared bill."],
@@ -218,18 +226,20 @@ export default async function HomePage({
             ],
             ["Settle up", "Watch balances zero out as receipts pile up."],
           ].map(([title, copy], i) => (
-            <li key={title}>
+            <Reveal key={title} as="li" delay={i * 120}>
               <p className="font-mono text-5xl font-bold tracking-tight text-accent">
                 {String(i + 1).padStart(2, "0")}
               </p>
               <h3 className="mt-4 text-xl font-semibold">{title}</h3>
               <p className="mt-2 leading-relaxed text-stone-600">{copy}</p>
-            </li>
+            </Reveal>
           ))}
         </ol>
-        <a href="#start" className="btn-ink mt-14 inline-flex">
-          Start a tab — it&apos;s free
-        </a>
+        <Reveal delay={360}>
+          <Link href="/create" className="btn-ink mt-14 inline-flex">
+            Start a tab — it&apos;s free
+          </Link>
+        </Reveal>
       </section>
 
       <footer className="border-t border-foreground/10">
@@ -244,12 +254,12 @@ export default async function HomePage({
 
 function FeatureRow({ num, title, copy }: { num: string; title: string; copy: string }) {
   return (
-    <li className="group grid gap-3 py-8 sm:grid-cols-12 sm:items-baseline">
+    <div className="group grid gap-3 py-8 sm:grid-cols-12 sm:items-baseline">
       <span className="label-mono text-stone-400 transition group-hover:text-accent sm:col-span-1">
         {num}
       </span>
       <h3 className="text-2xl font-semibold tracking-tight sm:col-span-4">{title}</h3>
       <p className="max-w-md leading-relaxed text-stone-600 sm:col-span-7">{copy}</p>
-    </li>
+    </div>
   );
 }
