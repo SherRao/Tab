@@ -6,6 +6,7 @@ import {
   lineItemShares,
   lineItems,
   participantClaims,
+  participants,
   SPLIT_MODES,
   type SplitMode,
   events,
@@ -271,7 +272,11 @@ export async function deleteEventAction(token: string) {
     redirect(`/e/${token}?deleteError=only_owner`);
   }
 
-  await db.delete(events).where(eq(events.shareToken, token));
+  // expenses.payerId is ON DELETE RESTRICT (src/db/schema.ts), so dependents
+  // must be removed before the event cascade reaches participants.
+  await db.delete(expenses).where(eq(expenses.eventId, detail.event.id));
+  await db.delete(participants).where(eq(participants.eventId, detail.event.id));
+  await db.delete(events).where(eq(events.id, detail.event.id));
   revalidatePath("/");
   revalidatePath("/tabs");
   redirect("/tabs");

@@ -24,12 +24,12 @@ The existing `ownerId` on the events table identifies the creator. SQLite foreig
 
 ## Decisions
 
-### D1: Permanent DB Deletion via Cascading Foreign Keys
+### D1: Permanent DB Deletion with Ordered Manual Deletes
 
-- Delete event row with `DELETE FROM events WHERE shareToken = ?`
-- SQLite `onDelete: "cascade"` automatically removes: participants → participantClaims, expenses → lineItems → lineItemShares
-- No manual deletes required in the action
-- Trade-off: Data cannot be easily recovered; user must confirm before deleting
+- The event owner triggers deletion; the action removes dependents in a safe order, then the event row
+- **Schema constraint discovered during implementation**: `expenses.payerId → participants.id` is `ON DELETE RESTRICT` (`src/db/schema.ts`), so a bare `DELETE FROM events` fails with `FOREIGN KEY constraint failed` once expenses exist — SQLite's cascade reaches participants before expenses are gone
+- Deletion order in `deleteEventAction`: expenses first (cascades lineItems → shares), then participants (cascades claims), then the event row (cascades groups)
+- Trade-off: Data cannot be recovered after deletion; user confirms before deleting
 
 ### D2: Owner-Gated Deletion
 

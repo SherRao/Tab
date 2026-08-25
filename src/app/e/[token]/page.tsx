@@ -7,7 +7,6 @@ import {
 import { computeNetBalances, simplifyDebts } from "@/lib/ledger";
 import {
   deleteExpenseAction,
-  deleteEventAction,
   addParticipantAction,
   requestClaimAction,
   decideClaimAction,
@@ -17,6 +16,7 @@ import { participantState } from "@/lib/participants";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import CopyLinkButton from "@/components/copy-link-button";
+import DeleteEventButton from "@/components/delete-event-button";
 import { AddSomeoneControl } from "@/components/add-people";
 import type { Metadata } from "next";
 
@@ -69,6 +69,7 @@ export default async function EventPage({
       );
     }
     notFound();
+  }
 
   const viewer = await getSessionUser();
   const isOwner = viewer != null && detail.event.ownerId === viewer.id;
@@ -129,16 +130,7 @@ export default async function EventPage({
 
         {isOwner && (
           <div className="mt-3">
-            <button
-              onClick={() => {
-                if (window.confirm(`Are you sure you want to permanently delete "${event.name}"? This cannot be undone.`)) {
-                  deleteEventAction(token);
-                }
-              }}
-              className="btn-ink px-4 py-2.5 text-sm text-red-600"
-            >
-              Delete tab
-            </button>
+            <DeleteEventButton token={token} eventName={event.name} />
           </div>
         )}
 
