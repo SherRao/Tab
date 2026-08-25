@@ -41,4 +41,6 @@ jobs:
         uses: github/codeql-action/analyze@v3
 
       - name: CodeQL Upload
-        uses: github/codeql-action/upload@v3
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
