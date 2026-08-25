@@ -2,7 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getOwnedEvents } from "@/lib/queries";
 import { getSessionUser } from "@/lib/auth";
-import { signOutAction } from "@/lib/auth-actions";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "My tabs" };
@@ -15,25 +14,7 @@ export default async function TabsPage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-6 pt-8 pb-20">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="display text-5xl sm:text-6xl">My tabs</h1>
-        <span className="flex items-center gap-3">
-          <Link href="/create" className="label-mono text-accent-strong transition hover:underline">
-            Start a new tab →
-          </Link>
-          <span className="label-mono text-stone-400">
-            @{viewer.username} · {viewer.displayName}
-          </span>
-          <form action={signOutAction}>
-            <button
-              type="submit"
-              className="label-mono text-stone-400 transition hover:text-red-600"
-            >
-              Sign out
-            </button>
-          </form>
-        </span>
-      </div>
+      <h1 className="display text-5xl sm:text-6xl">My tabs</h1>
 
       <section className="mt-12">
         <h2 className="label-mono border-b border-foreground/15 pb-2 text-stone-400">

@@ -1,7 +1,6 @@
 import { createEventAction } from "@/lib/actions";
 import { getSessionUser } from "@/lib/auth";
 import { CreateTabForm } from "@/components/create-tab-form";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { CSSProperties } from "react";
 import type { Metadata } from "next";
@@ -29,15 +28,7 @@ export default async function CreatePage({
       >
         tab.
       </span>
-      <header className="flex items-baseline justify-between gap-3">
-        <Link
-          href="/"
-          className="label-mono text-stone-400 transition hover:text-foreground"
-        >
-          ← back home
-        </Link>
-      </header>
-      <p className="label-mono rise-in mt-6 text-accent-strong">tab.</p>
+      <p className="label-mono rise-in text-accent-strong">tab.</p>
       <h1 className="display rise-in mt-3 text-5xl sm:text-6xl" style={delayStyle(90)}>
         New tab
       </h1>

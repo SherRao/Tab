@@ -109,10 +109,7 @@ export default async function EventPage({
     <main className="mx-auto w-full max-w-2xl flex-1 px-6 pt-8 pb-20">
       {/* header */}
       <header>
-        <div className="flex items-baseline justify-between gap-3">
-          <Link href="/" className="label-mono text-stone-400 transition hover:text-foreground">
-            ← new tab
-          </Link>
+        <div className="flex justify-end">
           <Link href={`/e/${token}/expenses/new`} className="btn-ink px-4 py-2.5">
             + Add expense
           </Link>
