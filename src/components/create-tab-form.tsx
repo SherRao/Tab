@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { CreateEventPeopleInput } from "@/components/add-people";
+
+const SUGGESTIONS = ["Dinner", "Weekend trip", "Apartment", "Bachelorette"];
 
 export function canContinueToPeople(name: string) {
   return Boolean(name.trim());
@@ -17,17 +19,28 @@ export function CreateTabForm({
   const [step, setStep] = useState(1);
   const [name, setName] = useState("");
   const [peopleCount, setPeopleCount] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
 
   function continueToPeople(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (canContinueToPeople(name)) setStep(2);
   }
 
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (submitting) return;
+    setSubmitting(true);
+    setTimeout(() => formRef.current?.requestSubmit(), 500);
+  }
+
   return (
     <form
+      ref={formRef}
       action={action}
-      onSubmit={step === 1 ? continueToPeople : undefined}
-      className="paper-card mt-8 p-6 sm:p-8"
+      onSubmit={step === 1 ? continueToPeople : handleSubmit}
+      className="paper-card receipt-edge rise-in mt-8 p-6 sm:p-8"
+      style={{ "--delay": "280ms" } as CSSProperties}
     >
       <p className="label-mono text-accent-strong">Step {step} of 2</p>
       <div className="mt-3 flex gap-2" aria-label={`Step ${step} of 2`}>
@@ -60,6 +73,18 @@ export function CreateTabForm({
             className="input-ink mt-6 text-lg"
             autoFocus
           />
+          <div className="mt-3 flex flex-wrap gap-2">
+            {SUGGESTIONS.map((suggestion) => (
+              <button
+                key={suggestion}
+                type="button"
+                onClick={() => setName(suggestion)}
+                className="chip"
+              >
+                {suggestion}
+              </button>
+            ))}
+          </div>
           <button type="submit" className="btn-ink mt-6 w-full">
             Continue →
           </button>
@@ -68,7 +93,13 @@ export function CreateTabForm({
         <div className="form-step mt-10">
           <input type="hidden" name="name" value={name} />
           <p className="display text-3xl sm:text-4xl">Who&apos;s in on {name.trim()}?</p>
-          <p className="mt-3 text-stone-500">You&apos;re in — add one other person.</p>
+          <p className="mt-3 text-stone-500">
+            {peopleCount > 0
+              ? `You + ${peopleCount} other${peopleCount === 1 ? "" : "s"} = ${
+                  peopleCount + 1
+                } people.`
+              : "You're in — add one other person."}
+          </p>
           <div className="mt-6">
             <CreateEventPeopleInput onChange={setPeopleCount} />
           </div>
@@ -80,9 +111,13 @@ export function CreateTabForm({
             >
               ← Back
             </button>
-            <button type="submit" disabled={peopleCount < 1} className="btn-ink">
-              {peopleCount < 1 ? "Add 1 more person" : "Start tab →"}
-            </button>
+            {submitting ? (
+              <span className="stamp stamp-pop">tab open ✓</span>
+            ) : (
+              <button type="submit" disabled={peopleCount < 1} className="btn-ink">
+                {peopleCount < 1 ? "Add 1 more person" : "Start tab →"}
+              </button>
+            )}
           </div>
         </div>
       )}
