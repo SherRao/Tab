@@ -31,3 +31,14 @@ jobs:
 
       - name: Check formatting with oxfmt
         run: npx oxfmt check
+
+      - name: CodeQL Init
+        uses: github/codeql-action/init@v3
+        with:
+          language: typescript
+
+      - name: CodeQL Analyze
+        uses: github/codeql-action/analyze@v3
+
+      - name: CodeQL Upload
+        uses: github/codeql-action/upload@v3
