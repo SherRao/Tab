@@ -8,6 +8,7 @@ on:
 
 jobs:
   lint:
+    name: Static Checks - Linting
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,6 +28,7 @@ jobs:
         run: npx oxlint .
 
   format:
+    name: Static Checks - Formatting
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -46,6 +48,7 @@ jobs:
         run: npx oxfmt check src/
 
   test:
+    name: Testing - Unit & Integration
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -65,6 +68,7 @@ jobs:
         run: npm test
 
   build:
+    name: Static Checks - Type Checking
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -84,6 +88,7 @@ jobs:
         run: npm run build
 
   commits:
+    name: Lint commit message
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
