@@ -71,12 +71,12 @@ beforeAll(async () => {
 });
 
 describe("full event flow", () => {
-  it("rejects event creation with fewer than two participants", async () => {
+  it("creates an event when the creator adds one other participant", async () => {
     const form = new FormData();
-    form.set("name", "Bad");
+    form.set("name", "Two people");
     form.set("participants", "Solo");
     await actions.createEventAction(form);
-    expect(redirectMock).toHaveBeenCalledWith("/?error=1");
+    expect(redirectMock).toHaveBeenCalledWith(expect.stringMatching(/^\/e\/[A-Za-z0-9_-]+$/));
   });
 
   it("creates an event with a share link at /e/<token>", async () => {

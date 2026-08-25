@@ -180,6 +180,10 @@ body {
 
 /* ---- motion ---------------------------------------------------------- */
 
+.form-step {
+  animation: rise-in 250ms ease-out both;
+}
+
 @keyframes rise-in {
   from {
     opacity: 0;
@@ -251,6 +255,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .form-step,
   .rise-in,
   .reveal {
     animation: none;

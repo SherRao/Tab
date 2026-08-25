@@ -1,6 +1,6 @@
 import { createEventAction } from "@/lib/actions";
 import { getSessionUser } from "@/lib/auth";
-import { CreateEventPeopleInput } from "@/components/add-people";
+import { CreateTabForm } from "@/components/create-tab-form";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
@@ -30,35 +30,7 @@ export default async function CreatePage({
       </header>
       <h1 className="display mt-4 text-5xl sm:text-6xl">New tab</h1>
 
-      <form action={createEventAction} className="paper-card mt-8 p-6">
-        <div>
-          <label htmlFor="name" className="label-mono block text-stone-500">
-            Event name
-          </label>
-          <input
-            id="name"
-            name="name"
-            required
-            placeholder="Vegas trip…"
-            className="input-ink mt-1.5"
-          />
-        </div>
-        <div className="mt-4">
-          <span className="label-mono block text-stone-500">
-            Who&apos;s in?{" "}
-            <span className="text-stone-300">(@username · email invite · plain name)</span>
-          </span>
-          <CreateEventPeopleInput />
-        </div>
-        {error && (
-          <p className="mt-4 border border-red-200 bg-red-50 px-3 py-2 font-mono text-xs text-red-700">
-            Please provide a name and at least two participants.
-          </p>
-        )}
-        <button type="submit" className="btn-ink mt-5 w-full">
-          Start a new tab &rarr;
-        </button>
-      </form>
+      <CreateTabForm action={createEventAction} error={error} />
     </main>
   );
 }

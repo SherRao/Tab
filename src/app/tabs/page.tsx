@@ -15,14 +15,12 @@ export default async function TabsPage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-6 pt-8 pb-20">
-      <header className="flex items-baseline justify-between gap-3">
-        <Link href="/" className="label-mono text-stone-400 transition hover:text-foreground">
-          ← new tab
-        </Link>
-      </header>
-      <div className="mt-4 flex flex-wrap items-baseline justify-between gap-2">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h1 className="display text-5xl sm:text-6xl">My tabs</h1>
         <span className="flex items-center gap-3">
+          <Link href="/create" className="label-mono text-accent-strong transition hover:underline">
+            Start a new tab →
+          </Link>
           <span className="label-mono text-stone-400">
             @{viewer.username} · {viewer.displayName}
           </span>
@@ -44,12 +42,12 @@ export default async function TabsPage() {
         {events.length === 0 ? (
           <div className="mt-4 border border-dashed border-foreground/25 p-10 text-center">
             <p className="font-medium text-stone-500">No tabs yet.</p>
-            <a
-              href="/#start"
+            <Link
+              href="/create"
               className="label-mono mt-2 inline-block text-accent-strong hover:underline"
             >
               Start your first one →
-            </a>
+            </Link>
           </div>
         ) : (
           <ul className="divide-y divide-dashed divide-foreground/10">

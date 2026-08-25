@@ -76,10 +76,12 @@ function buildChoices(
 function SearchChooser({
   addedUserIds,
   placeholder,
+  inputLabel,
   onSelect,
 }: {
   addedUserIds: Set<number>;
   placeholder: string;
+  inputLabel: string;
   onSelect: (choice: EntryChoice) => void;
 }) {
   const [raw, setRaw] = useState("");
@@ -107,6 +109,7 @@ function SearchChooser({
         }}
         onFocus={() => setOpen(true)}
         placeholder={placeholder}
+        aria-label={inputLabel}
         className="input-ink w-full"
         autoComplete="off"
       />
@@ -152,13 +155,21 @@ const MODE_BADGE: Record<EntryChoice["mode"], string> = {
 };
 
 /** Landing page: collect multiple entries into a participantsJson payload. */
-export function CreateEventPeopleInput() {
+export function CreateEventPeopleInput({
+  onChange,
+}: {
+  onChange?: (count: number) => void;
+}) {
   const [entries, setEntries] = useState<EntryChoice[]>([]);
   const addedUserIds = new Set(entries.map((e) => (e.mode === "account" ? e.userId : -1)));
 
   function addEntry(choice: EntryChoice) {
     if (choice.mode === "account" && addedUserIds.has(choice.userId)) return;
-    setEntries((prev) => [...prev, choice]);
+    setEntries((prev) => {
+      const next = [...prev, choice];
+      onChange?.(next.length);
+      return next;
+    });
   }
 
   return (
@@ -168,6 +179,7 @@ export function CreateEventPeopleInput() {
         <SearchChooser
           addedUserIds={addedUserIds}
           placeholder="@username, email, or just a name…"
+          inputLabel="Add people by username, email, or name"
           onSelect={addEntry}
         />
       </div>
@@ -181,7 +193,13 @@ export function CreateEventPeopleInput() {
                 <button
                   type="button"
                   aria-label="Remove"
-                  onClick={() => setEntries((prev) => prev.filter((_, j) => j !== i))}
+                  onClick={() =>
+                    setEntries((prev) => {
+                      const next = prev.filter((_, j) => j !== i);
+                      onChange?.(next.length);
+                      return next;
+                    })
+                  }
                   className="text-stone-400 transition hover:text-red-600"
                 >
                   ×
@@ -191,8 +209,8 @@ export function CreateEventPeopleInput() {
           ))}
         </ul>
       )}
-      {entries.length < 2 && (
-        <p className="label-mono mt-2 text-stone-400">add at least two people</p>
+      {entries.length < 1 && (
+        <p className="label-mono mt-2 text-stone-400">add one other person</p>
       )}
     </>
   );
@@ -219,6 +237,7 @@ export function AddSomeoneControl({
       <SearchChooser
         addedUserIds={added}
         placeholder="+ Add someone — @username, email, or a name"
+        inputLabel="Add someone by username, email, or name"
         onSelect={(choice) => {
           entryRef.current!.value = JSON.stringify(choice);
           formRef.current!.requestSubmit();

@@ -128,8 +128,11 @@ export default async function HomePage() {
           {/* create-event CTA */}
           <div className="paper-card rise-in mt-10 max-w-lg p-6" id="start" style={delayStyle(280)}>
             {viewer ? (
-              <Link href="/create" className="btn-ink w-full justify-center">
-                Start a new tab &rarr;
+              <Link
+                href="/create"
+                className="label-mono block text-center text-accent-strong transition hover:underline"
+              >
+                Start a new tab →
               </Link>
             ) : (
               <div className="py-2 text-center">
@@ -236,8 +239,11 @@ export default async function HomePage() {
           ))}
         </ol>
         <Reveal delay={360}>
-          <Link href="/create" className="btn-ink mt-14 inline-flex">
-            Start a tab — it&apos;s free
+          <Link
+            href="/create"
+            className="label-mono mt-14 inline-block text-accent-strong transition hover:underline"
+          >
+            Start a tab — it&apos;s free →
           </Link>
         </Reveal>
       </section>

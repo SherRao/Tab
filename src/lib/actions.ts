@@ -46,7 +46,7 @@ export async function createEventAction(formData: FormData) {
           ["account", "guest", "invite"].includes(String((e as CreateParticipantEntry).mode)),
       );
     } catch {
-      redirect("/?error=1");
+      redirect("/create?error=1");
     }
   } else {
     entries = rawLegacy
@@ -56,8 +56,8 @@ export async function createEventAction(formData: FormData) {
       .map((n) => ({ mode: "guest" as const, name: n }));
   }
 
-  if (!name || entries.length < 2) {
-    redirect("/?error=1");
+  if (!name || entries.length < 1) {
+    redirect("/create?error=1");
   }
 
   const { event, participants: created } = await createEventRecord(name, entries, user.id);
