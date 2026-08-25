@@ -60,6 +60,12 @@ export async function createEventAction(formData: FormData) {
 
   const { event, participants: created } = await createEventRecord(name, entries, user.id);
 
+  try {
+    await addParticipantRow(event.id, { mode: "account", userId: user.id });
+} catch {
+    await addParticipantRow(event.id, { mode: "guest", name: user.displayName ?? user.username ?? "You" });
+}
+
   // Send invitation emails for any invited participants created up front.
   for (const person of created) {
     if (person.email == null) continue;
