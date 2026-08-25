@@ -117,7 +117,7 @@ describe("computeNetBalances", () => {
     expect(nets.get(2)).toBe(-3300);
   });
 
-  it("even mode divides total equally among chosen participants", () => {
+  it("even mode divides total equally among selected group IDs", () => {
     const nets = computeNetBalances(
       [alice, bob, carol],
       [
@@ -127,7 +127,7 @@ describe("computeNetBalances", () => {
           tipCents: 0,
           totalCents: 9000,
           splitMode: "even",
-          evenParticipantIds: [1, 2, 3],
+          groupIds: [1, 2, 3],
           lineItems: [],
         },
       ],

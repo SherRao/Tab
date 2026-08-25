@@ -66,34 +66,18 @@ interface Consumption {
   consumedCents: Map<number, number>;
 }
 
-interface Consumption {
-  paidCents: Map<number, number>;
-  consumedCents: Map<number, number>;
-}
-
-function allocateByGroupParticipantIds(
+function selectedParticipantIds(
   participantIds: number[],
-  groupParticipantMap: Map<number, number[]> | undefined,
-  expenseGroupIds: number[] | undefined,
+  selectedIds: number[] | undefined,
 ): number[] {
-  if (!expenseGroupIds || expenseGroupIds.length === 0) return participantIds;
-
-  const resolved = new Set<number>();
-  for (const groupId of expenseGroupIds) {
-    const groupMembers = groupParticipantMap?.get(groupId);
-    if (groupMembers) {
-      for (const id of groupMembers) {
-        resolved.add(id);
-      }
-    }
-  }
-  return [...resolved];
+  if (!selectedIds || selectedIds.length === 0) return participantIds;
+  const selected = new Set(selectedIds);
+  return participantIds.filter((id) => selected.has(id));
 }
 
 function computeConsumption(
   participants: LedgerParticipant[],
   expenses: LedgerExpense[],
-  groupParticipantMap?: Map<number, number[]>,
 ): Consumption {
   const paid = new Map<number, number>();
   const consumed = new Map<number, number>();
@@ -110,9 +94,9 @@ function computeConsumption(
     // otherwise fall back to evenParticipantIds, otherwise use all participants
     let participantIds: number[];
     if (expense.groupIds && expense.groupIds.length > 0) {
-      participantIds = allocateByGroupParticipantIds(allIds, groupParticipantMap, expense.groupIds);
+      participantIds = selectedParticipantIds(allIds, expense.groupIds);
     } else if (expense.evenParticipantIds && expense.evenParticipantIds.length > 0) {
-      participantIds = expense.evenParticipantIds.filter((id) => allIds.includes(id));
+      participantIds = selectedParticipantIds(allIds, expense.evenParticipantIds);
     } else {
       participantIds = allIds;
     }
@@ -159,13 +143,8 @@ function computeConsumption(
 export function computeNetBalances(
   participants: LedgerParticipant[],
   expenses: LedgerExpense[],
-  groupParticipantMap?: Map<number, number[]>,
 ): Map<number, number> {
-  const { paidCents, consumedCents } = computeConsumption(
-    participants,
-    expenses,
-    groupParticipantMap,
-  );
+  const { paidCents, consumedCents } = computeConsumption(participants, expenses);
   const nets = new Map<number, number>();
   for (const p of participants) {
     nets.set(p.id, (paidCents.get(p.id) ?? 0) - (consumedCents.get(p.id) ?? 0));
