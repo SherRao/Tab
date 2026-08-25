@@ -42,7 +42,8 @@ export default async function EditExpensePage({
             tip: (expense.tipCents / 100).toFixed(2),
             total: (expense.totalCents / 100).toFixed(2),
             splitMode: expense.splitMode,
-            evenParticipantIds: expense.evenParticipantIds ?? [],
+            evenParticipantIds: [],
+            groupIds: expense.groupIds ?? [],
           }}
         />
       </div>

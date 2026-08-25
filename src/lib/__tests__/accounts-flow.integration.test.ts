@@ -135,7 +135,7 @@ describe("accounts and participants flow", () => {
       tipCents: 0,
       totalCents: 3000,
       splitMode: "even",
-      evenParticipantIds: participants.map((p) => p.id),
+      groupIds: participants.map((p) => p.id),
       items: [],
     });
 
@@ -187,9 +187,9 @@ describe("accounts and participants flow", () => {
         taxCents: expense.taxCents,
         tipCents: expense.tipCents,
         totalCents: expense.totalCents,
-        splitMode: expense.splitMode,
-        evenParticipantIds: expense.evenParticipantIds ?? undefined,
-        lineItems: items.map((i) => ({
+splitMode: expense.splitMode,
+      groupIds: expense.groupIds ?? undefined,
+      lineItems: items.map((i) => ({
           name: i.item.name,
           amountCents: i.item.amountCents,
           participantIds: i.participantIds,

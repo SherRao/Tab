@@ -45,7 +45,7 @@ function toLedger(
       tipCents: expense.tipCents,
       totalCents: expense.totalCents,
       splitMode: expense.splitMode,
-      evenParticipantIds: expense.evenParticipantIds ?? undefined,
+      groupIds: expense.groupIds ?? undefined,
       lineItems: items.map((i) => ({
         name: i.item.name,
         amountCents: i.item.amountCents,
@@ -101,7 +101,7 @@ describe("full event flow", () => {
       tipCents: 600,
       totalCents: 4056,
       splitMode: "itemized",
-      evenParticipantIds: [],
+      groupIds: [],
       items: [
         { name: "Tacos", amountCents: 2400, participantIds: [A, B] },
         { name: "Guac", amountCents: 800, participantIds: [A, C] },
@@ -114,7 +114,7 @@ describe("full event flow", () => {
       tipCents: 0,
       totalCents: 9000,
       splitMode: "even",
-      evenParticipantIds: [A, B, C],
+      groupIds: [A, B, C],
       items: [],
     });
 
@@ -139,7 +139,7 @@ describe("full event flow", () => {
       tipCents: 0,
       totalCents: 3000,
       splitMode: "group",
-      evenParticipantIds: [],
+      groupIds: [],
       items: [{ name: "Cake", amountCents: 3000, participantIds: [] }],
     });
 
@@ -185,7 +185,7 @@ describe("full event flow", () => {
         tipCents: 0,
         totalCents: 1000,
         splitMode: "even",
-        evenParticipantIds: detail!.participants.map((p) => p.id),
+        groupIds: detail!.participants.map((p) => p.id),
         items: [],
       }),
     ).rejects.toThrow("Payer is not a participant");

@@ -133,7 +133,7 @@ interface ExpensePayload {
   tipCents: number;
   totalCents: number;
   splitMode: SplitMode;
-  evenParticipantIds: number[];
+  groupIds: number[] | undefined;
   items: { name: string; amountCents: number; participantIds: number[] }[];
 }
 
@@ -155,8 +155,8 @@ export async function saveExpenseAction(token: string, payload: ExpensePayload) 
       tipCents: payload.tipCents,
       totalCents: payload.totalCents,
       splitMode: payload.splitMode,
-      evenParticipantIds:
-        payload.splitMode === "even" ? payload.evenParticipantIds.filter((id) => validIds.has(id)) : null,
+      groupIds:
+        payload.splitMode === "even" ? payload.groupIds?.filter((id) => validIds.has(id)) : undefined,
     })
     .returning();
 
@@ -205,8 +205,8 @@ export async function updateExpenseAction(
       tipCents: payload.tipCents,
       totalCents: payload.totalCents,
       splitMode: payload.splitMode,
-      evenParticipantIds:
-        payload.splitMode === "even" ? payload.evenParticipantIds : null,
+      groupIds:
+        payload.splitMode === "even" ? payload.groupIds ?? undefined : undefined,
     })
     .where(eq(expenses.id, expenseId));
 

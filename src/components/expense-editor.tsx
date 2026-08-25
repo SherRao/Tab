@@ -28,6 +28,7 @@ export interface ExpenseEditorProps {
     total: string;
     splitMode: "itemized" | "even" | "group";
     evenParticipantIds: number[];
+    groupIds: number[] | undefined;
   };
 }
 
@@ -65,6 +66,7 @@ export default function ExpenseEditor({
     initial?.splitMode ?? "itemized",
   );
   const [evenIds, setEvenIds] = useState<number[]>(initial?.evenParticipantIds ?? []);
+  const [groupIds, setGroupIds] = useState<number[]>(initial?.groupIds ?? []);
   const [saving, setSaving] = useState(false);
 
   const computed = useMemo(() => {
@@ -115,6 +117,7 @@ export default function ExpenseEditor({
         totalCents: toCents(total) || 0,
         splitMode,
         evenParticipantIds: evenIds,
+        groupIds: groupIds.length > 0 ? groupIds : undefined,
         items: items
           .filter((it) => it.name.trim() || it.amount.trim())
           .map((it) => ({
@@ -337,6 +340,30 @@ export default function ExpenseEditor({
             Everyone in the event splits the whole total equally.
           </p>
         )}
+
+        <div className="mt-4 space-y-2">
+          <label className="label-mono block text-stone-500">Assign to group(s)</label>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            {participants.map((p) => (
+              <label key={p.id} className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={groupIds.includes(p.id)}
+                  onChange={(e) =>
+                    setGroupIds(
+                      e.target.checked ? [...groupIds, p.id] : groupIds.filter((id) => id !== p.id)
+                    )
+                  }
+                  className="rounded border-accent-strong"
+                />
+                {p.name}
+              </label>
+            ))}
+          </div>
+          <p className="mt-2 font-mono text-[11px] text-stone-400">
+            {groupIds.length} participant{groupIds.length !== 1 ? "s" : ""} selected
+          </p>
+        </div>
 
         {(splitMode === "itemized" || splitMode === "group") && (
           <section className="grid grid-cols-2 gap-3">

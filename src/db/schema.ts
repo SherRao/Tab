@@ -53,6 +53,14 @@ export const events = sqliteTable("events", {
     .$defaultFn(() => new Date()),
 });
 
+export const groups = sqliteTable("groups", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  eventId: integer("event_id")
+    .notNull()
+    .references(() => events.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+});
+
 export const participants = sqliteTable(
   "participants",
   {
@@ -80,6 +88,19 @@ export const participants = sqliteTable(
 
 export const AUTH_TOKEN_PURPOSES = ["signin", "invite"] as const;
 export type AuthTokenPurpose = (typeof AUTH_TOKEN_PURPOSES)[number];
+
+export const participantGroup = sqliteTable(
+  "participantGroup",
+  {
+    participantId: integer("participant_id")
+      .notNull()
+      .references(() => participants.id, { onDelete: "cascade" }),
+    groupId: integer("group_id")
+      .notNull()
+      .references(() => groups.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.participantId, t.groupId] })],
+);
 
 export const authTokens = sqliteTable(
   "auth_tokens",
@@ -149,9 +170,7 @@ export const expenses = sqliteTable(
     splitMode: text("split_mode", { enum: SPLIT_MODES })
       .notNull()
       .default("itemized"),
-    evenParticipantIds: text("even_participant_ids", { mode: "json" }).$type<
-      number[]
-    >(),
+    groupIds: text("group_ids", { mode: "json" }).$type<number[] | null>(),
     createdAt: integer("created_at", { mode: "timestamp" })
       .notNull()
       .$defaultFn(() => new Date()),

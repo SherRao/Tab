@@ -68,7 +68,7 @@ export default async function EventPage({
     tipCents: expense.tipCents,
     totalCents: expense.totalCents,
     splitMode: expense.splitMode,
-    evenParticipantIds: expense.evenParticipantIds ?? undefined,
+    groupIds: expense.groupIds ?? undefined,
     lineItems: items.map((i) => ({
       name: i.item.name,
       amountCents: i.item.amountCents,

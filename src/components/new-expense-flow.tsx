@@ -8,15 +8,41 @@ import ScanReceipt, { type ScanOutcome } from "@/components/scan-receipt";
 
 type Stage = "choose" | "editor";
 
+export interface NewExpenseFlowProps {
+  token: string;
+  participants: EditorParticipant[];
+  editorInitial?: {
+    description: string;
+    payerId: number | undefined;
+    items: EditorItem[];
+    tax: string;
+    tip: string;
+    total: string;
+    splitMode: "itemized" | "even" | "group";
+    evenParticipantIds: number[];
+    groupIds: number[] | undefined;
+  };
+}
+
 export default function NewExpenseFlow({
   token,
   participants,
-}: {
-  token: string;
-  participants: EditorParticipant[];
-}) {
+  editorInitial,
+}: NewExpenseFlowProps) {
+const [initial, setInitial] = useState<Parameters<typeof ExpenseEditor>[0]["initial"]>(
+  editorInitial ?? {
+    description: "",
+    payerId: undefined,
+    items: [{ name: "", amount: "", participantIds: [] }],
+    tax: "",
+    tip: "",
+    total: "",
+    splitMode: "itemized",
+    evenParticipantIds: [],
+    groupIds: undefined,
+  }
+);
   const [stage, setStage] = useState<Stage>("choose");
-  const [initial, setInitial] = useState<Parameters<typeof ExpenseEditor>[0]["initial"]>();
   const [scanNotice, setScanNotice] = useState<string | null>(null);
 
   function applyDraft(draft: ReceiptDraft, outcome: Exclude<ScanOutcome, { status: "error" }>["status"]) {
@@ -34,6 +60,7 @@ export default function NewExpenseFlow({
       total: draft.totalCents ? (draft.totalCents / 100).toFixed(2) : "",
       splitMode: "itemized",
       evenParticipantIds: [],
+      groupIds: [],
     });
     setScanNotice(
       outcome === "success"
