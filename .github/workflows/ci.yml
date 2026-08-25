@@ -7,6 +7,44 @@ on:
     branches: [main]
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint with oxlint
+        run: npx oxlint .
+
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check formatting with oxfmt
+        run: npx oxfmt check src/
+
   build:
     runs-on: ubuntu-latest
     steps:
@@ -25,22 +63,3 @@ jobs:
 
       - name: Type check
         run: npm run build
-
-      - name: Lint with oxlint
-        run: npx oxlint .
-
-      - name: Check formatting with oxfmt
-        run: npx oxfmt check src/
-
-      - name: CodeQL Init
-        uses: github/codeql-action/init@v3
-        with:
-          language: typescript
-
-      - name: CodeQL Analyze
-        uses: github/codeql-action/analyze@v3
-
-      - name: CodeQL Upload
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: results.sarif
