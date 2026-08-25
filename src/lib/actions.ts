@@ -8,12 +8,13 @@ import {
   participantClaims,
   SPLIT_MODES,
   type SplitMode,
+  events,
 } from "@/db/schema";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { and, eq, inArray } from "drizzle-orm";
 import { createEventRecord, getEventByToken } from "./queries";
-import { requireSession, appBaseUrl, createLoginToken } from "./auth";
+import { requireSession, getSessionUser, appBaseUrl, createLoginToken } from "./auth";
 import { sendEmail } from "./email";
 import {
   addParticipant as addParticipantRow,
@@ -258,6 +259,22 @@ export async function deleteExpenseAction(formData: FormData) {
       .where(and(eq(expenses.id, expenseId), eq(expenses.eventId, detail.event.id)));
     revalidatePath(`/e/${token}`);
   }
+}
+
+export async function deleteEventAction(token: string) {
+  await requireSession();
+  const detail = await getEventByToken(token);
+  if (!detail) redirect("/");
+
+  const viewer = await getSessionUser();
+  if (viewer == null || detail.event.ownerId !== viewer.id) {
+    redirect(`/e/${token}?deleteError=only_owner`);
+  }
+
+  await db.delete(events).where(eq(events.shareToken, token));
+  revalidatePath("/");
+  revalidatePath("/tabs");
+  redirect("/tabs");
 }
 
 /** A signed-in user asks to claim a bare-name guest as themselves. */

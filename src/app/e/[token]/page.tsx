@@ -7,6 +7,7 @@ import {
 import { computeNetBalances, simplifyDebts } from "@/lib/ledger";
 import {
   deleteExpenseAction,
+  deleteEventAction,
   addParticipantAction,
   requestClaimAction,
   decideClaimAction,
@@ -40,16 +41,34 @@ const STATE_BADGES = {
   guest: "no account",
 } as const;
 
+function getErrorMessage(
+  error?: string | undefined,
+): string | undefined {
+  if (!error) return undefined;
+  if (error.includes("only_owner")) return "Only the event owner can view this page";
+  if (error.includes("delete")) return "This event has been deleted";
+  return error;
+}
+
 export default async function EventPage({
   params,
   searchParams,
 }: {
   params: Promise<{ token: string }>;
-  searchParams: Promise<{ addError?: string; claimError?: string }>;
+  searchParams: Promise<{ addError?: string; claimError?: string; deleteError?: string }>;
 }) {
-  const [{ token }, { addError, claimError }] = await Promise.all([params, searchParams]);
+  const [{ token }, { addError, claimError, deleteError }] = await Promise.all([params, searchParams]);
   const detail = await getEventByToken(token);
-  if (!detail) notFound();
+  if (!detail) {
+    const error = getErrorMessage(deleteError);
+    if (error) {
+      return (
+        <div className="mt-6 border-l-4 border-l-red-400 bg-red-50 px-4 py-2 font-mono text-xs text-red-700">
+          ! {error}
+        </div>
+      );
+    }
+    notFound();
 
   const viewer = await getSessionUser();
   const isOwner = viewer != null && detail.event.ownerId === viewer.id;
@@ -108,6 +127,21 @@ export default async function EventPage({
           <CopyLinkButton path={`/e/${token}`} />
         </div>
 
+        {isOwner && (
+          <div className="mt-3">
+            <button
+              onClick={() => {
+                if (window.confirm(`Are you sure you want to permanently delete "${event.name}"? This cannot be undone.`)) {
+                  deleteEventAction(token);
+                }
+              }}
+              className="btn-ink px-4 py-2.5 text-sm text-red-600"
+            >
+              Delete tab
+            </button>
+          </div>
+        )}
+
         {!viewer && (
           <p className="paper-card mt-4 flex flex-wrap items-center justify-between gap-2 p-3 font-mono text-xs text-stone-500">
             <span>You&apos;re viewing read-only.</span>
@@ -130,9 +164,9 @@ export default async function EventPage({
         )}
       </header>
 
-      {(addError || claimError) && (
+      {(addError || claimError || deleteError) && (
         <div className="mt-6 border-l-4 border-l-red-400 bg-red-50 px-4 py-2 font-mono text-xs text-red-700">
-          ! {addError ?? claimError}
+          ! {addError ?? claimError ?? deleteError}
         </div>
       )}
 

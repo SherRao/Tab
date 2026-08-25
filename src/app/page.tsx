@@ -100,6 +100,12 @@ export default async function HomePage({
               Sign in
             </Link>
           )}
+          <Link
+            href="/create"
+            className="label-mono text-accent-strong transition hover:underline"
+          >
+            Create a new tab
+          </Link>
         </nav>
       </header>
 
