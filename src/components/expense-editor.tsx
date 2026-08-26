@@ -395,7 +395,7 @@ export default function ExpenseEditor({
           </section>
         )}
 
-        {computed.discrepancy !== 0 && (
+        {splitMode === "itemized" && computed.discrepancy !== 0 && (
           <p className="border-l-4 border-l-amber-400 bg-amber-50 px-4 py-3 font-mono text-xs leading-relaxed text-amber-800">
             Items ({formatMoney(computed.itemsSum)}) + tax + tip = {formatMoney(computed.expected)},
             but the total you entered is {formatMoney(toCents(total))} (
