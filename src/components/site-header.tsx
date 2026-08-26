@@ -18,12 +18,6 @@ export default async function SiteHeader() {
             >
               My tabs
             </Link>
-            <Link
-              href="/create"
-              className="label-mono text-accent-strong transition hover:underline"
-            >
-              New tab
-            </Link>
             <form action={signOutAction}>
               <button
                 type="submit"
