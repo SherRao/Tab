@@ -22,12 +22,6 @@ export default async function CreatePage({
 
   return (
     <main className="relative mx-auto w-full max-w-2xl flex-1 px-6 pt-8 pb-20">
-      <span
-        aria-hidden
-        className="pointer-events-none absolute right-0 top-16 -z-10 select-none font-mono text-[10rem] font-bold leading-none tracking-tight text-foreground/[0.06] sm:text-[16rem]"
-      >
-        tab.
-      </span>
       <p className="label-mono rise-in text-accent-strong">tab.</p>
       <h1 className="display rise-in mt-3 text-5xl sm:text-6xl" style={delayStyle(90)}>
         New tab
