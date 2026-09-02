@@ -295,7 +295,7 @@ export function computeParticipantBreakdown(
     }
   }
 
-  const totalConsumedCents = items.reduce((sum, i) => sum + i.shareCents, 0) + taxShareCents + tipShareCents + otherExtrasShareCents;
+  const totalConsumedCents = consumed;
   const netCents = paid - totalConsumedCents;
 
   return {
