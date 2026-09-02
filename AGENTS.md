@@ -26,13 +26,32 @@ receipts, and the ledger nets everything out to the fewest transfers.
   line_items, line_item_shares). SQLite via better-sqlite3, WAL mode.
 - `src/lib/receipt-parse.ts` + `src/lib/image-preprocess.ts` — on-device
   receipt OCR (tesseract.js, client-side only).
-- `src/components/expense-editor.tsx` — the shared new/edit expense form
-  (client component). `new-expense-flow.tsx` wraps it with the scan step.
+- `src/components/` — UI lives here, not in route files; pages fetch data and
+  compose. Folders:
+  - `ui/` — shared primitives used across domains (`error-note`, `field`,
+    `section-heading`, `empty-state`, `watermark`, `money-input`,
+    `chip-toggle-group`, `copy-link-button`, `reveal`). If a pattern repeats,
+    it goes here.
+  - `event/` — dashboard sections (`event-header`, `balance-list`,
+    `claim-requests`, `settle-up-list`, `receipt-list`, `unassigned-warnings`,
+    `delete-tab-button`).
+  - `expense/` — `expense-editor.tsx` (the shared new/edit expense form, client
+    component; exports `EditorItem`/`EditorParticipant`) plus
+    `split-mode-selector`, `line-item-row`, `new-expense-flow` (wraps the editor
+    with the scan step), `scan-receipt`.
+  - `people/` — account-search hook, `search-chooser`, and the two add-people
+    controls (create-event input, event-page control).
+  - `auth/` — `sign-in-form`, `sign-up-form`. `marketing/` — landing blocks.
+    `layout/` — `site-header`.
+- `src/lib/format.ts` — the only money formatters: `formatCents` (display),
+  `toFixedMoney` / `toCents` (editor strings / parsing). `src/lib/motion.ts` —
+  `delayStyle` for rise-in animations.
 
 ## Conventions
 
-- Money is always integer cents end-to-end; format with `toLocaleString` for
-  display, `toFixed(2)` only for editor string state.
+- Money is always integer cents end-to-end; display formatting goes through
+  `formatCents` from `src/lib/format.ts`, editor string state through
+  `toFixedMoney`/`toCents`.
 - Design system lives in `src/app/globals.css`: paper/ink tokens
   (`--background`, `--paper`, `--accent`), and utilities `receipt-card`,
   `receipt-edge`, `receipt-lined`, `label-mono`, `leader-dots`, `paper-card`,
