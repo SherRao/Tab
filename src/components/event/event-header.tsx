@@ -1,19 +1,16 @@
 import Link from "next/link";
 import CopyLinkButton from "@/components/ui/copy-link-button";
-import DeleteTabButton from "@/components/event/delete-tab-button";
 import { formatCents } from "@/lib/format";
 
 export function EventHeader({
   token,
   eventName,
-  isOwner,
   viewerSignedIn,
   receiptCount,
   grandTotalCents,
 }: {
   token: string;
   eventName: string;
-  isOwner: boolean;
   viewerSignedIn: boolean;
   receiptCount: number;
   grandTotalCents: number;
@@ -35,12 +32,6 @@ export function EventHeader({
         </code>
         <CopyLinkButton path={`/e/${token}`} />
       </div>
-
-      {isOwner && (
-        <div className="mt-3">
-          <DeleteTabButton token={token} eventName={eventName} />
-        </div>
-      )}
 
       {!viewerSignedIn && (
         <p className="paper-card mt-4 flex flex-wrap items-center justify-between gap-2 p-3 font-mono text-xs text-stone-500">

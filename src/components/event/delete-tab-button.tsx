@@ -21,7 +21,7 @@ export default function DeleteTabButton({
           void deleteEventAction(token);
         }
       }}
-      className="btn-ink px-4 py-2.5 text-sm text-red-600"
+      className="btn-ghost px-4 py-2.5 text-sm text-red-600 border-red-600/40 hover:bg-red-600/5"
     >
       Delete tab
     </button>

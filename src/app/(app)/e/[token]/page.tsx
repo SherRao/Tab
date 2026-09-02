@@ -15,6 +15,7 @@ import { addParticipantAction } from "@/lib/actions";
 import { getSessionUser } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import { EventHeader } from "@/components/event/event-header";
+import DeleteTabButton from "@/components/event/delete-tab-button";
 import {
   BalanceList,
   type BalancePerson,
@@ -26,6 +27,7 @@ import { SettleUpList } from "@/components/event/settle-up-list";
 import { ReceiptList, type ReceiptCardData } from "@/components/event/receipt-list";
 import { UnassignedWarnings } from "@/components/event/unassigned-warnings";
 import { ErrorNote } from "@/components/ui/error-note";
+import { SectionHeading } from "@/components/ui/section-heading";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Event" };
@@ -165,7 +167,6 @@ export default async function EventPage({
       <EventHeader
         token={token}
         eventName={event.name}
-        isOwner={isOwner}
         viewerSignedIn={viewer != null}
         receiptCount={expenseRows.length}
         grandTotalCents={grandTotal}
@@ -193,6 +194,15 @@ export default async function EventPage({
       <SettleUpList transfers={transfers} nameOf={nameOf} />
 
       <ReceiptList token={token} receipts={receipts} nameOf={nameOf} />
+
+      {isOwner && (
+        <section className="mt-12">
+          <SectionHeading>Actions</SectionHeading>
+          <div className="mt-4">
+            <DeleteTabButton token={token} eventName={event.name} />
+          </div>
+        </section>
+      )}
     </main>
   );
 }
