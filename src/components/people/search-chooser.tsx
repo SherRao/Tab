@@ -5,7 +5,7 @@ import { useAccountSearch, type AccountMatch } from "./use-account-search";
 
 export type EntryChoice =
   | { mode: "account"; userId: number; label: string }
-  | { mode: "guest"; name: string; label: string }
+  | { mode: "guest"; name: string; email?: string; label: string }
   | { mode: "invite"; name: string; email: string; label: string };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -25,6 +25,20 @@ function buildChoices(
       label: `@${m.username} · ${m.displayName}${addedUserIds.has(m.id) ? " (already added)" : ""}`,
     });
   }
+  // Detect "Name email@domain.com" pattern for guest-with-email
+  const nameEmailMatch = text.match(/^(.+?)\s+([^\s@]+@[^\s@]+\.[^\s@]+)$/);
+  if (nameEmailMatch) {
+    const [, namePart, emailPart] = nameEmailMatch;
+    const email = emailPart.toLowerCase();
+    choices.push({
+      mode: "guest",
+      name: namePart.trim(),
+      email,
+      label: `Add "${namePart.trim()}" as guest (${email})`,
+    });
+  }
+
+  // Bare email → invite mode
   if (EMAIL_RE.test(text)) {
     const [namePart, domain] = text.split("@");
     choices.push({
@@ -34,7 +48,9 @@ function buildChoices(
       label: `Invite ${text} to sign up`,
     });
   }
-  choices.push({ mode: "guest", name: text, label: `Add “${text}” without an account` });
+
+  // Plain guest (always last)
+  choices.push({ mode: "guest", name: text, label: `Add "${text}" without an account` });
   return choices;
 }
 

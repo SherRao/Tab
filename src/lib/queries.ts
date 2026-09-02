@@ -205,7 +205,7 @@ export async function addParticipantRecord(
   }
   const [row] = await db
     .insert(participants)
-    .values({ eventId, name: input.name ?? "" })
+    .values({ eventId, name: input.name ?? "", email: input.email?.trim().toLowerCase() ?? null })
     .returning();
   return row;
 }

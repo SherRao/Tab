@@ -46,7 +46,9 @@ export function CreateEventPeopleInput({
           {entries.map((e, i) => (
             <li key={i}>
               <span className="label-mono inline-flex items-center gap-2 border border-foreground/25 px-2 py-1">
-                {e.label.replace(/ \(already added\)$/, "")}
+                {e.mode === "guest" && e.email
+                  ? `${e.name} (${e.email})`
+                  : e.label.replace(/ \(already added\)$/, "")}
                 <span className="text-stone-400">{MODE_BADGE[e.mode]}</span>
                 <button
                   type="button"

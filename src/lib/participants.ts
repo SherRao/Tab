@@ -20,7 +20,7 @@ export function participantState(p: {
   invitedAt: Date | null;
 }): ParticipantState {
   if (p.userId != null) return "linked";
-  if (p.email != null) return "invited";
+  if (p.email != null && p.invitedAt != null) return "invited";
   return "guest";
 }
 
@@ -50,7 +50,7 @@ export async function searchAccounts(query: string): Promise<AccountSuggestion[]
 
 export type AddParticipantInput =
   | { mode: "account"; userId: number }
-  | { mode: "guest"; name: string }
+  | { mode: "guest"; name: string; email?: string }
   | { mode: "invite"; name: string; email: string };
 
 export class ParticipantError extends Error {}
@@ -75,7 +75,17 @@ export async function addParticipant(
   if (!name) throw new ParticipantError("Name is required");
 
   if (input.mode === "guest") {
-    const [row] = await db.insert(participants).values({ eventId, name }).returning();
+    const email = input.email?.trim().toLowerCase() || undefined;
+    if (email) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        throw new ParticipantError("Enter a valid email address");
+      }
+      await assertEmailFreeInEvent(eventId, email);
+    }
+    const [row] = await db
+      .insert(participants)
+      .values({ eventId, name, email: email ?? null })
+      .returning();
     return row;
   }
 

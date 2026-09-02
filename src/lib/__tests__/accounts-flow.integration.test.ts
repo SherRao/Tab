@@ -9,6 +9,9 @@ const redirectMock = vi.fn((url: string) => {
 });
 vi.mock("next/navigation", () => ({ redirect: (url: string) => redirectMock(url) }));
 
+const sendEmailMock = vi.fn().mockResolvedValue(undefined);
+vi.mock("@/lib/email", () => ({ sendEmail: (...args: unknown[]) => sendEmailMock(...args) }));
+
 process.env.DATABASE_URL = `file:${path.join(os.tmpdir(), `accounts-test-${Date.now()}-${process.pid}.db`)}`;
 
 // Mutable signed-in identity so tests can act as different users.
@@ -205,5 +208,44 @@ describe("accounts and participants flow", () => {
     );
     expect(nets.get(dana.id)).toBe(1500);
     expect([...nets.values()].reduce((a, b) => a + b, 0)).toBe(0);
+  });
+
+  it("creates a guest-with-email via createEventRecord without sending an invitation", async () => {
+    sendEmailMock.mockClear();
+    const { participants } = await queries.createEventRecord(
+      "Guest Email Event",
+      [
+        { mode: "guest", name: "Eve", email: "eve@test.dev" },
+        { mode: "guest", name: "Frank" },
+      ],
+      currentUser.id,
+    );
+    expect(participants).toHaveLength(2);
+    const eve = participants.find((p) => p.name === "Eve")!;
+    expect(eve.email).toBe("eve@test.dev");
+    expect(eve.invitedAt).toBeNull();
+    expect(eve.userId).toBeNull();
+    const frank = participants.find((p) => p.name === "Frank")!;
+    expect(frank.email).toBeNull();
+    expect(frank.invitedAt).toBeNull();
+    expect(sendEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("adds a guest-with-email via addParticipantAction without sending an invitation", async () => {
+    sendEmailMock.mockClear();
+    const { event } = await queries.createEventRecord(
+      "Add Guest Email Event",
+      [],
+      currentUser.id,
+    );
+    await actions.addParticipantAction(
+      addForm(event.shareToken, { mode: "guest", name: "Grace", email: "grace@test.dev" }),
+    );
+    const detail = await queries.getEventByToken(event.shareToken);
+    const grace = detail!.participants.find((p) => p.name === "Grace")!;
+    expect(grace.email).toBe("grace@test.dev");
+    expect(grace.invitedAt).toBeNull();
+    expect(grace.userId).toBeNull();
+    expect(sendEmailMock).not.toHaveBeenCalled();
   });
 });

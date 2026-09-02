@@ -71,7 +71,7 @@ export async function createEventAction(formData: FormData) {
 
   // Send invitation emails for any invited participants created up front.
   for (const person of created) {
-    if (person.email == null) continue;
+    if (person.email == null || person.invitedAt == null) continue;
     try {
       const token = await createLoginToken(person.email, person.id);
       await sendEmail({
@@ -120,7 +120,7 @@ export async function addParticipantAction(formData: FormData) {
         ? { mode: "account", userId: Number(parsed.userId) }
         : parsed.mode === "invite"
           ? { mode: "invite", name: String(parsed.name ?? ""), email: String(parsed.email ?? "") }
-          : { mode: "guest", name: String(parsed.name ?? "") };
+          : { mode: "guest", name: String(parsed.name ?? ""), email: parsed.email ? String(parsed.email) : undefined };
     if (input.mode === "account" && !Number.isInteger(input.userId)) return;
 
     const row = await addParticipantRow(detail.event.id, input);
