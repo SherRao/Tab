@@ -15,6 +15,27 @@
       "when": 1788312622244,
       "tag": "0001_redundant_nemesis",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788322945147,
+      "tag": "0002_living_shinobi_shaw",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1788323054416,
+      "tag": "0003_tricky_satana",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1788326154954,
+      "tag": "0004_typical_redwing",
+      "breakpoints": true
     }
   ]
 }

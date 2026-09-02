@@ -81,7 +81,7 @@ export const participants = sqliteTable(
   (t) => [
     index("participants_event_idx").on(t.eventId),
     uniqueIndex("participants_user_unique")
-      .on(t.userId)
+      .on(t.eventId, t.userId)
       .where(sql`user_id is not null`),
   ],
 );
