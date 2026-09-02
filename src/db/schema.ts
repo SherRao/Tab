@@ -148,7 +148,7 @@ export const participantClaims = sqliteTable(
   ],
 );
 
-export const SPLIT_MODES = ["itemized", "even", "group"] as const;
+export const SPLIT_MODES = ["itemized", "even"] as const;
 export type SplitMode = (typeof SPLIT_MODES)[number];
 
 export const expenses = sqliteTable(
@@ -166,8 +166,6 @@ export const expenses = sqliteTable(
     tipCents: integer("tip_cents").notNull().default(0),
     totalCents: integer("total_cents").notNull().default(0),
     splitMode: text("split_mode", { enum: SPLIT_MODES }).notNull().default("itemized"),
-    groupIds: text("group_ids", { mode: "json" }).$type<number[] | null>(),
-    evenParticipantIds: text("even_participant_ids", { mode: "json" }).$type<number[] | null>(),
     createdAt: integer("created_at", { mode: "timestamp" })
       .notNull()
       .$defaultFn(() => new Date()),
@@ -199,6 +197,43 @@ export const lineItemShares = sqliteTable(
       .references(() => participants.id, { onDelete: "cascade" }),
   },
   (t) => [primaryKey({ columns: [t.lineItemId, t.participantId] })],
+);
+
+export const WEIGHT_TYPES = ["equal", "percent", "amount"] as const;
+export type WeightType = (typeof WEIGHT_TYPES)[number];
+
+export const expenseShares = sqliteTable(
+  "expense_shares",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    expenseId: integer("expense_id")
+      .notNull()
+      .references(() => expenses.id, { onDelete: "cascade" }),
+    participantId: integer("participant_id").references(() => participants.id, {
+      onDelete: "cascade",
+    }),
+    groupId: integer("group_id").references(() => groups.id, {
+      onDelete: "set null",
+    }),
+    lineItemId: integer("line_item_id").references(() => lineItems.id, {
+      onDelete: "cascade",
+    }),
+    weightType: text("weight_type", { enum: WEIGHT_TYPES }).notNull(),
+    weightValue: integer("weight_value").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (t) => [
+    index("expense_shares_expense_idx").on(t.expenseId),
+    index("expense_shares_line_item_idx").on(t.lineItemId),
+    uniqueIndex("expense_shares_unique_idx").on(
+      t.expenseId,
+      t.lineItemId,
+      t.participantId,
+      t.groupId,
+    ),
+  ],
 );
 
 export const eventsRelations = relations(events, ({ many, one }) => ({
@@ -240,6 +275,7 @@ export const expensesRelations = relations(expenses, ({ one, many }) => ({
     references: [participants.id],
   }),
   lineItems: many(lineItems),
+  expenseShares: many(expenseShares),
 }));
 
 export const lineItemsRelations = relations(lineItems, ({ one, many }) => ({
@@ -259,4 +295,31 @@ export const lineItemSharesRelations = relations(lineItemShares, ({ one }) => ({
     fields: [lineItemShares.participantId],
     references: [participants.id],
   }),
+}));
+
+export const expenseSharesRelations = relations(expenseShares, ({ one }) => ({
+  expense: one(expenses, {
+    fields: [expenseShares.expenseId],
+    references: [expenses.id],
+  }),
+  participant: one(participants, {
+    fields: [expenseShares.participantId],
+    references: [participants.id],
+  }),
+  group: one(groups, {
+    fields: [expenseShares.groupId],
+    references: [groups.id],
+  }),
+  lineItem: one(lineItems, {
+    fields: [expenseShares.lineItemId],
+    references: [lineItems.id],
+  }),
+}));
+
+export const groupsRelations = relations(groups, ({ one, many }) => ({
+  event: one(events, {
+    fields: [groups.eventId],
+    references: [events.id],
+  }),
+  members: many(participantGroup),
 }));

@@ -78,9 +78,8 @@ describe("deleteEventAction", () => {
       tipCents: 0,
       totalCents: 3000,
       splitMode: "itemized",
-      groupIds: [],
-      evenParticipantIds: [],
       items: [{ name: "Tacos", amountCents: 3000, participantIds: [alice.id] }],
+      shares: [],
     });
 
     expect(await queries.getExpenses(event.id)).toHaveLength(1);

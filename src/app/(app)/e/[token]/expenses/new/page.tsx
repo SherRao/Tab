@@ -35,8 +35,7 @@ export default async function NewExpensePage({ params }: { params: Promise<{ tok
             tip: "",
             total: "",
             splitMode: "itemized",
-            evenParticipantIds: [],
-            groupIds: [],
+            selectedParticipantIds: editorParticipants.map((p) => p.id),
           }}
         />
       </div>

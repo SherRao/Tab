@@ -9,6 +9,7 @@ import {
   simplifyDebts,
   computeParticipantBreakdown,
   type LedgerParticipant,
+  type LedgerExpense,
 } from "@/lib/ledger";
 import { addParticipantAction } from "@/lib/actions";
 import { getSessionUser } from "@/lib/auth";
@@ -65,20 +66,28 @@ export default async function EventPage({
     viewer ? hasClaimedParticipant(event.id, viewer.id) : Promise.resolve(false),
   ]);
 
-  const ledgerExpenses = expenseRows.map(({ expense, items }) => ({
+  const ledgerExpenses: LedgerExpense[] = expenseRows.map(({ expense, items, shares }) => ({
     payerId: expense.payerId,
     description: expense.description ?? undefined,
     taxCents: expense.taxCents,
     tipCents: expense.tipCents,
     totalCents: expense.totalCents,
-    splitMode: expense.splitMode,
-    groupIds: expense.groupIds ?? undefined,
+    splitMode: expense.splitMode as "itemized" | "even",
     lineItems: items.map((i) => ({
+      id: i.item.id,
       name: i.item.name,
       amountCents: i.item.amountCents,
       participantIds: i.participantIds,
     })),
+    shares: shares.map((s) => ({
+      participantId: s.participantId != null ? s.participantId : undefined,
+      groupId: s.groupId != null ? s.groupId : undefined,
+      lineItemId: s.lineItemId != null ? s.lineItemId : undefined,
+      weightType: s.weightType,
+      weightValue: s.weightValue,
+    })),
   }));
+
   const nets = computeNetBalances(people, ledgerExpenses);
   const transfers = simplifyDebts(nets);
   const nameOf = new Map(people.map((p) => [p.id, p.userDisplayName ?? p.name]));
@@ -86,7 +95,7 @@ export default async function EventPage({
   const warnings = expenseRows.flatMap(({ expense, items }) =>
     items
       .filter((i) => i.participantIds.length === 0)
-      .map((i) => `“${i.item.name}” in “${expense.description || "Untitled"}” has no assignees`),
+      .map((i) => `"${i.item.name}" in "${expense.description || "Untitled"}" has no assignees`),
   );
 
   const balancePeople: BalancePerson[] = people.map((p) => ({
@@ -107,7 +116,7 @@ export default async function EventPage({
   const guestNameOf = (participantId: number) =>
     people.find((p) => p.id === participantId)?.name ?? "?";
 
-  const receipts: ReceiptCardData[] = expenseRows.map(({ expense, items }) => ({
+  const receipts: ReceiptCardData[] = expenseRows.map(({ expense, items, shares }) => ({
     expense: {
       id: expense.id,
       description: expense.description,
@@ -122,6 +131,13 @@ export default async function EventPage({
       name: item.name,
       amountCents: item.amountCents,
       participantNames: participantIds.map((id) => nameOf.get(id) ?? "?"),
+    })),
+    shares: shares.map((s) => ({
+      participantId: s.participantId != null ? s.participantId : undefined,
+      groupId: s.groupId != null ? s.groupId : undefined,
+      lineItemId: s.lineItemId != null ? s.lineItemId : undefined,
+      weightType: s.weightType,
+      weightValue: s.weightValue,
     })),
   }));
 

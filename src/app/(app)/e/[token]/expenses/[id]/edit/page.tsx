@@ -15,7 +15,13 @@ export default async function EditExpensePage({
   const rows = await getExpenses(detail.event.id);
   const row = rows.find((r) => r.expense.id === Number(id));
   if (!row) notFound();
-  const { expense, items } = row;
+  const { expense, items, shares } = row;
+
+  // Reconstruct selectedParticipantIds from shares
+  const totalShares = shares.filter((s) => s.lineItemId == null);
+  const selectedParticipantIds = totalShares
+    .map((s) => s.participantId)
+    .filter((id): id is number => id != null);
 
   return (
     <main className="mx-auto w-full max-w-xl flex-1 px-6 pt-8 pb-16">
@@ -38,13 +44,14 @@ export default async function EditExpensePage({
               name: i.item.name,
               amount: toFixedMoney(i.item.amountCents),
               participantIds: i.participantIds,
+              quantity: "",
+              participantQuantities: {},
             })),
             tax: toFixedMoney(expense.taxCents),
             tip: toFixedMoney(expense.tipCents),
             total: toFixedMoney(expense.totalCents),
-            splitMode: expense.splitMode,
-            evenParticipantIds: expense.evenParticipantIds ?? [],
-            groupIds: expense.groupIds ?? [],
+            splitMode: expense.splitMode as "itemized" | "even",
+            selectedParticipantIds,
           }}
         />
       </div>

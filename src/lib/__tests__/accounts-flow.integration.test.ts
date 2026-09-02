@@ -133,9 +133,12 @@ describe("accounts and participants flow", () => {
       tipCents: 0,
       totalCents: 3000,
       splitMode: "even",
-      groupIds: participants.map((p) => p.id),
-      evenParticipantIds: [],
       items: [],
+      shares: participants.map((p) => ({
+        participantId: p.id,
+        weightType: "equal" as const,
+        weightValue: 10000,
+      })),
     });
 
     // Friend requests the claim.
@@ -179,17 +182,24 @@ describe("accounts and participants flow", () => {
     const ledger = await import("@/lib/ledger");
     const nets = ledger.computeNetBalances(
       after!.participants,
-      expenseRows.map(({ expense, items }) => ({
+      expenseRows.map(({ expense, items, shares }) => ({
         payerId: expense.payerId,
         taxCents: expense.taxCents,
         tipCents: expense.tipCents,
         totalCents: expense.totalCents,
-        splitMode: expense.splitMode,
-        groupIds: expense.groupIds ?? undefined,
+        splitMode: expense.splitMode as "itemized" | "even",
         lineItems: items.map((i) => ({
+          id: i.item.id,
           name: i.item.name,
           amountCents: i.item.amountCents,
           participantIds: i.participantIds,
+        })),
+        shares: shares.map((s) => ({
+          participantId: s.participantId ?? undefined,
+          groupId: s.groupId ?? undefined,
+          lineItemId: s.lineItemId ?? undefined,
+          weightType: s.weightType,
+          weightValue: s.weightValue,
         })),
       })),
     );

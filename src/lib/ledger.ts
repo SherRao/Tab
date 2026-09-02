@@ -4,12 +4,21 @@ export interface LedgerParticipant {
 }
 
 export interface LedgerLineItem {
+  id?: number;
   name: string;
   amountCents: number;
   participantIds: number[];
 }
 
-export type SplitMode = "itemized" | "even" | "group";
+export type SplitMode = "itemized" | "even";
+
+export interface LedgerShare {
+  participantId?: number;
+  groupId?: number;
+  lineItemId?: number | null;
+  weightType: "equal" | "percent" | "amount";
+  weightValue: number;
+}
 
 export interface LedgerExpense {
   payerId: number;
@@ -18,9 +27,8 @@ export interface LedgerExpense {
   tipCents: number;
   totalCents: number;
   splitMode: SplitMode;
-  evenParticipantIds?: number[];
-  groupIds?: number[];
   lineItems: LedgerLineItem[];
+  shares?: LedgerShare[];
 }
 
 export interface Transfer {
@@ -61,23 +69,96 @@ export function equalSplit(totalCents: number, count: number): number[] {
   );
 }
 
+/**
+ * Resolve a set of shares into per-participant cent amounts for a given total.
+ *
+ * Handles:
+ * - explicit participantId rows
+ * - groupId rows resolved via groupMemberLookup (live link)
+ * - weight types: equal, percent, amount
+ * - mixed weight types: exact amounts first, remainder distributed proportionally
+ */
+function resolveShares(
+  shares: LedgerShare[],
+  totalCents: number,
+  allParticipantIds: number[],
+  groupMemberLookup: (groupId: number) => number[],
+): { participantId: number; consumedCents: number }[] {
+  // Aggregate weights per participant
+  const participantWeights = new Map<number, number>();
+  const participantAmounts = new Map<number, number>();
+
+  for (const share of shares) {
+    let pids: number[] = [];
+    if (share.participantId != null) {
+      pids = [share.participantId];
+    } else if (share.groupId != null) {
+      pids = groupMemberLookup(share.groupId);
+    } else {
+      continue;
+    }
+
+    for (const pid of pids) {
+      if (share.weightType === "amount") {
+        participantAmounts.set(pid, (participantAmounts.get(pid) ?? 0) + share.weightValue);
+      } else {
+        const w = share.weightType === "percent" ? share.weightValue / 10000 : 1;
+        participantWeights.set(pid, (participantWeights.get(pid) ?? 0) + w);
+      }
+    }
+  }
+
+  // If no participants resolved, fall back to all
+  if (participantWeights.size === 0 && participantAmounts.size === 0) {
+    for (const id of allParticipantIds) {
+      participantWeights.set(id, 1);
+    }
+  }
+
+  const result: { participantId: number; consumedCents: number }[] = [];
+
+  if (participantAmounts.size > 0) {
+    // Assign exact amounts
+    let amountTotal = 0;
+    for (const [pid, cents] of participantAmounts) {
+      result.push({ participantId: pid, consumedCents: cents });
+      amountTotal += cents;
+    }
+    // Distribute remainder proportionally among weight-based participants
+    const remainder = totalCents - amountTotal;
+    if (remainder > 0 && participantWeights.size > 0) {
+      const pids = Array.from(participantWeights.keys());
+      const weights = pids.map((id) => participantWeights.get(id)!);
+      const alloc = allocateByWeights(remainder, weights);
+      for (let i = 0; i < pids.length; i++) {
+        result.push({ participantId: pids[i], consumedCents: alloc[i] });
+      }
+    } else if (remainder !== 0 && participantWeights.size === 0) {
+      // All amount shares - absorb rounding into last
+      result[result.length - 1].consumedCents += remainder;
+    }
+  } else {
+    // Pure proportional
+    const pids = Array.from(participantWeights.keys());
+    const weights = pids.map((id) => participantWeights.get(id)!);
+    const alloc = allocateByWeights(totalCents, weights);
+    for (let i = 0; i < pids.length; i++) {
+      result.push({ participantId: pids[i], consumedCents: alloc[i] });
+    }
+  }
+
+  return result;
+}
+
 interface Consumption {
   paidCents: Map<number, number>;
   consumedCents: Map<number, number>;
 }
 
-function selectedParticipantIds(
-  participantIds: number[],
-  selectedIds: number[] | undefined,
-): number[] {
-  if (!selectedIds || selectedIds.length === 0) return participantIds;
-  const selected = new Set(selectedIds);
-  return participantIds.filter((id) => selected.has(id));
-}
-
 function computeConsumption(
   participants: LedgerParticipant[],
   expenses: LedgerExpense[],
+  groupMemberLookup: (groupId: number) => number[] = () => [],
 ): Consumption {
   const paid = new Map<number, number>();
   const consumed = new Map<number, number>();
@@ -90,51 +171,114 @@ function computeConsumption(
   for (const expense of expenses) {
     paid.set(expense.payerId, (paid.get(expense.payerId) ?? 0) + expense.totalCents);
 
-    // Resolve participant set: use groupIds if set,
-    // otherwise fall back to evenParticipantIds, otherwise use all participants
-    let participantIds: number[];
-    if (expense.groupIds && expense.groupIds.length > 0) {
-      participantIds = selectedParticipantIds(allIds, expense.groupIds);
-    } else if (expense.evenParticipantIds && expense.evenParticipantIds.length > 0) {
-      participantIds = selectedParticipantIds(allIds, expense.evenParticipantIds);
-    } else {
-      participantIds = allIds;
-    }
+    if (expense.shares && expense.shares.length > 0) {
+      if (expense.splitMode === "even") {
+        // Total-level shares (lineItemId = null)
+        const totalShares = expense.shares.filter(
+          (s) => s.lineItemId == null || s.lineItemId === undefined,
+        );
+        if (totalShares.length > 0) {
+          const resolved = resolveShares(totalShares, expense.totalCents, allIds, groupMemberLookup);
+          for (const r of resolved) {
+            consumed.set(r.participantId, (consumed.get(r.participantId) ?? 0) + r.consumedCents);
+          }
+        } else {
+          // Fallback: equal split
+          const shares = equalSplit(expense.totalCents, allIds.length);
+          allIds.forEach((id, i) => consumed.set(id, (consumed.get(id) ?? 0) + shares[i]));
+        }
+      } else {
+        // Itemized: line-item level shares
+        const lineShares = expense.shares.filter(
+          (s) => s.lineItemId != null && s.lineItemId !== undefined,
+        );
 
-    if (expense.splitMode === "even" || expense.splitMode === "group") {
-      const ids = expense.splitMode === "group" ? participantIds : participantIds;
-      const shares = equalSplit(expense.totalCents, ids.length);
-      ids.forEach((id, i) => consumed.set(id, (consumed.get(id) ?? 0) + shares[i]));
-      continue;
-    }
+        // Group by lineItemId
+        const sharesByLine = new Map<number, LedgerShare[]>();
+        for (const s of lineShares) {
+          const lid = s.lineItemId!;
+          const arr = sharesByLine.get(lid) ?? [];
+          arr.push(s);
+          sharesByLine.set(lid, arr);
+        }
 
-    const subtotal = new Map<number, number>(participantIds.map((id) => [id, 0]));
-    for (const item of expense.lineItems) {
-      const assignees = item.participantIds.filter((id) => participantIds.includes(id));
-      const shares = equalSplit(item.amountCents, assignees.length);
-      assignees.forEach((id, i) => subtotal.set(id, (subtotal.get(id) ?? 0) + shares[i]));
-    }
+        // Compute per-line-item subtotals
+        const subtotal = new Map<number, number>(allIds.map((id) => [id, 0]));
+        const lineItemAmounts = new Map<number, number>();
 
-    const itemsTotal = expense.lineItems.reduce((a, b) => a + b.amountCents, 0);
-    const extras = [
-      expense.taxCents,
-      expense.tipCents,
-      expense.totalCents - itemsTotal - expense.taxCents - expense.tipCents,
-    ];
-    for (const extra of extras) {
-      let allocation = allocateByWeights(
-        extra,
-        participantIds.map((id) => subtotal.get(id) ?? 0),
-      );
-      if (extra !== 0 && allocation.every((v) => v === 0) && participantIds.length > 0) {
-        allocation = equalSplit(extra, participantIds.length);
+        for (const [lineItemId, shares] of sharesByLine) {
+          // Find matching line item by ID
+          const lineItem = expense.lineItems.find((li) => li.id === lineItemId);
+          const amount = lineItem?.amountCents ?? 0;
+          lineItemAmounts.set(lineItemId, amount);
+
+          const resolved = resolveShares(shares, amount, allIds, groupMemberLookup);
+          for (const r of resolved) {
+            subtotal.set(r.participantId, (subtotal.get(r.participantId) ?? 0) + r.consumedCents);
+          }
+        }
+
+        // Add subtotal to consumed
+        for (const [id, cents] of subtotal) {
+          consumed.set(id, (consumed.get(id) ?? 0) + cents);
+        }
+
+        // Allocate tax/tip proportionally to pre-tax subtotals
+        const itemsTotal = expense.lineItems.reduce((a, b) => a + b.amountCents, 0);
+        const extras = [
+          expense.taxCents,
+          expense.tipCents,
+          expense.totalCents - itemsTotal - expense.taxCents - expense.tipCents,
+        ];
+        for (const extra of extras) {
+          let allocation = allocateByWeights(
+            extra,
+            allIds.map((id) => subtotal.get(id) ?? 0),
+          );
+          if (extra !== 0 && allocation.every((v) => v === 0) && allIds.length > 0) {
+            allocation = equalSplit(extra, allIds.length);
+          }
+          allIds.forEach((id, i) =>
+            consumed.set(id, (consumed.get(id) ?? 0) + allocation[i]),
+          );
+        }
       }
-      participantIds.forEach((id, i) => consumed.set(id, (consumed.get(id) ?? 0) + allocation[i]));
+    } else {
+      // Fallback: no shares (backward compatibility for edge cases)
+      if (expense.splitMode === "even") {
+        const shares = equalSplit(expense.totalCents, allIds.length);
+        allIds.forEach((id, i) => consumed.set(id, (consumed.get(id) ?? 0) + shares[i]));
+      } else {
+        const subtotal = new Map<number, number>(allIds.map((id) => [id, 0]));
+        for (const item of expense.lineItems) {
+          const assignees = item.participantIds.filter((id) => allIds.includes(id));
+          if (assignees.length === 0) continue;
+          const shares = equalSplit(item.amountCents, assignees.length);
+          assignees.forEach((id, i) => subtotal.set(id, (subtotal.get(id) ?? 0) + shares[i]));
+        }
+        const itemsTotal = expense.lineItems.reduce((a, b) => a + b.amountCents, 0);
+        const extras = [
+          expense.taxCents,
+          expense.tipCents,
+          expense.totalCents - itemsTotal - expense.taxCents - expense.tipCents,
+        ];
+        for (const extra of extras) {
+          let allocation = allocateByWeights(
+            extra,
+            allIds.map((id) => subtotal.get(id) ?? 0),
+          );
+          if (extra !== 0 && allocation.every((v) => v === 0) && allIds.length > 0) {
+            allocation = equalSplit(extra, allIds.length);
+          }
+          allIds.forEach((id, i) =>
+            consumed.set(id, (consumed.get(id) ?? 0) + allocation[i]),
+          );
+        }
+        allIds.forEach((id) =>
+          consumed.set(id, (consumed.get(id) ?? 0) + (subtotal.get(id) ?? 0)),
+        );
+      }
     }
-
-    participantIds.forEach((id) =>
-      consumed.set(id, (consumed.get(id) ?? 0) + (subtotal.get(id) ?? 0)),
-    );
   }
 
   return { paidCents: paid, consumedCents: consumed };
@@ -143,8 +287,9 @@ function computeConsumption(
 export function computeNetBalances(
   participants: LedgerParticipant[],
   expenses: LedgerExpense[],
+  groupMemberLookup: (groupId: number) => number[] = () => [],
 ): Map<number, number> {
-  const { paidCents, consumedCents } = computeConsumption(participants, expenses);
+  const { paidCents, consumedCents } = computeConsumption(participants, expenses, groupMemberLookup);
   const nets = new Map<number, number>();
   for (const p of participants) {
     nets.set(p.id, (paidCents.get(p.id) ?? 0) - (consumedCents.get(p.id) ?? 0));
@@ -198,8 +343,9 @@ export function computeParticipantBreakdown(
   participants: LedgerParticipant[],
   expenses: LedgerExpense[],
   participantId: number,
+  groupMemberLookup: (groupId: number) => number[] = () => [],
 ): ParticipantBreakdown {
-  const { paidCents, consumedCents } = computeConsumption(participants, expenses);
+  const { paidCents, consumedCents } = computeConsumption(participants, expenses, groupMemberLookup);
   const paid = paidCents.get(participantId) ?? 0;
   const consumed = consumedCents.get(participantId) ?? 0;
 
@@ -211,87 +357,182 @@ export function computeParticipantBreakdown(
   const allIds = participants.map((p) => p.id);
 
   for (const expense of expenses) {
-    let participantIds: number[];
-    if (expense.groupIds && expense.groupIds.length > 0) {
-      participantIds = selectedParticipantIds(allIds, expense.groupIds);
-    } else if (expense.evenParticipantIds && expense.evenParticipantIds.length > 0) {
-      participantIds = selectedParticipantIds(allIds, expense.evenParticipantIds);
-    } else {
-      participantIds = allIds;
-    }
+    // Compute this participant's consumption for this expense
+    if (expense.shares && expense.shares.length > 0) {
+      if (expense.splitMode === "even") {
+        const totalShares = expense.shares.filter(
+          (s) => s.lineItemId == null || s.lineItemId === undefined,
+        );
+        if (totalShares.length > 0) {
+          const resolved = resolveShares(totalShares, expense.totalCents, allIds, groupMemberLookup);
+          const myShare = resolved.find((r) => r.participantId === participantId);
+          if (myShare && myShare.consumedCents > 0) {
+            items.push({
+              expenseId: 0,
+              expenseDescription: expense.description,
+              itemName: expense.description || "Split",
+              itemAmountCents: expense.totalCents,
+              shareCents: myShare.consumedCents,
+            });
+            const itemsTotal = expense.lineItems.reduce((a, b) => a + b.amountCents, 0);
+            const taxTipOther = expense.totalCents - itemsTotal;
+            if (taxTipOther > 0) {
+              const taxRatio = expense.taxCents / taxTipOther;
+              const tipRatio = expense.tipCents / taxTipOther;
+              const otherRatio = 1 - taxRatio - tipRatio;
+              taxShareCents += Math.round(myShare.consumedCents * taxRatio);
+              tipShareCents += Math.round(myShare.consumedCents * tipRatio);
+              otherExtrasShareCents += Math.round(myShare.consumedCents * otherRatio);
+            }
+          }
+        } else {
+          // Fallback: equal split
+          const shares = equalSplit(expense.totalCents, allIds.length);
+          const idx = allIds.indexOf(participantId);
+          if (idx >= 0) {
+            const share = shares[idx];
+            items.push({
+              expenseId: 0,
+              expenseDescription: expense.description,
+              itemName: expense.description || "Split",
+              itemAmountCents: expense.totalCents,
+              shareCents: share,
+            });
+            const itemsTotal = expense.lineItems.reduce((a, b) => a + b.amountCents, 0);
+            const taxTipOther = expense.totalCents - itemsTotal;
+            if (taxTipOther > 0) {
+              const taxRatio = expense.taxCents / taxTipOther;
+              const tipRatio = expense.tipCents / taxTipOther;
+              const otherRatio = 1 - taxRatio - tipRatio;
+              taxShareCents += Math.round(share * taxRatio);
+              tipShareCents += Math.round(share * tipRatio);
+              otherExtrasShareCents += Math.round(share * otherRatio);
+            }
+          }
+        }
+      } else {
+        // Itemized: line-item level shares
+        const lineShares = expense.shares.filter(
+          (s) => s.lineItemId != null && s.lineItemId !== undefined,
+        );
+        const sharesByLine = new Map<number, LedgerShare[]>();
+        for (const s of lineShares) {
+          const lid = s.lineItemId!;
+          const arr = sharesByLine.get(lid) ?? [];
+          arr.push(s);
+          sharesByLine.set(lid, arr);
+        }
 
-    if (!participantIds.includes(participantId)) continue;
+        const subtotal = new Map<number, number>(allIds.map((id) => [id, 0]));
+        for (const [lineItemId, shares] of sharesByLine) {
+          const lineItem = expense.lineItems.find((li) => li.id === lineItemId);
+          const amount = lineItem?.amountCents ?? 0;
+          const resolved = resolveShares(shares, amount, allIds, groupMemberLookup);
+          const myShare = resolved.find((r) => r.participantId === participantId);
+          if (myShare && myShare.consumedCents > 0) {
+            subtotal.set(participantId, (subtotal.get(participantId) ?? 0) + myShare.consumedCents);
+            items.push({
+              expenseId: 0,
+              expenseDescription: expense.description,
+              itemName: lineItem?.name ?? "Item",
+              itemAmountCents: amount,
+              shareCents: myShare.consumedCents,
+            });
+          }
+        }
 
-    if (expense.splitMode === "even" || expense.splitMode === "group") {
-      const ids = expense.splitMode === "group" ? participantIds : participantIds;
-      const shares = equalSplit(expense.totalCents, ids.length);
-      const idx = ids.indexOf(participantId);
-      if (idx >= 0) {
-        const share = shares[idx];
-        items.push({
-          expenseId: 0,
-          expenseDescription: expense.description,
-          itemName: expense.description || "Split",
-          itemAmountCents: expense.totalCents,
-          shareCents: share,
-        });
         const itemsTotal = expense.lineItems.reduce((a, b) => a + b.amountCents, 0);
-        const taxTipOther = expense.totalCents - itemsTotal;
-        if (taxTipOther > 0) {
-          const taxRatio = expense.taxCents / taxTipOther;
-          const tipRatio = expense.tipCents / taxTipOther;
-          const otherRatio = 1 - taxRatio - tipRatio;
-          taxShareCents += Math.round(share * taxRatio);
-          tipShareCents += Math.round(share * tipRatio);
-          otherExtrasShareCents += Math.round(share * otherRatio);
+        const extras = [
+          { amount: expense.taxCents, type: "tax" as const },
+          { amount: expense.tipCents, type: "tip" as const },
+          {
+            amount: expense.totalCents - itemsTotal - expense.taxCents - expense.tipCents,
+            type: "other" as const,
+          },
+        ];
+        const mySubtotal = subtotal.get(participantId) ?? 0;
+        const totalSubtotal = allIds.reduce((sum, id) => sum + (subtotal.get(id) ?? 0), 0);
+        for (const extra of extras) {
+          if (extra.amount === 0) continue;
+          let share = 0;
+          if (totalSubtotal > 0) {
+            share = Math.round((mySubtotal / totalSubtotal) * extra.amount);
+          } else if (allIds.length > 0) {
+            share = Math.round(extra.amount / allIds.length);
+          }
+          if (extra.type === "tax") taxShareCents += share;
+          else if (extra.type === "tip") tipShareCents += share;
+          else otherExtrasShareCents += share;
         }
       }
-      continue;
-    }
-
-    const subtotal = new Map<number, number>(participantIds.map((id) => [id, 0]));
-    for (const item of expense.lineItems) {
-      const assignees = item.participantIds.filter((id) => participantIds.includes(id));
-      if (assignees.length === 0) continue;
-      const shares = equalSplit(item.amountCents, assignees.length);
-      const idx = assignees.indexOf(participantId);
-      if (idx >= 0) {
-        const share = shares[idx];
-        subtotal.set(participantId, (subtotal.get(participantId) ?? 0) + share);
-        items.push({
-          expenseId: 0,
-          expenseDescription: expense.description,
-          itemName: item.name,
-          itemAmountCents: item.amountCents,
-          shareCents: share,
-        });
+    } else {
+      // Fallback: no shares (backward compatibility)
+      if (expense.splitMode === "even") {
+        const shares = equalSplit(expense.totalCents, allIds.length);
+        const idx = allIds.indexOf(participantId);
+        if (idx >= 0) {
+          const share = shares[idx];
+          items.push({
+            expenseId: 0,
+            expenseDescription: expense.description,
+            itemName: expense.description || "Split",
+            itemAmountCents: expense.totalCents,
+            shareCents: share,
+          });
+          const itemsTotal = expense.lineItems.reduce((a, b) => a + b.amountCents, 0);
+          const taxTipOther = expense.totalCents - itemsTotal;
+          if (taxTipOther > 0) {
+            const taxRatio = expense.taxCents / taxTipOther;
+            const tipRatio = expense.tipCents / taxTipOther;
+            const otherRatio = 1 - taxRatio - tipRatio;
+            taxShareCents += Math.round(share * taxRatio);
+            tipShareCents += Math.round(share * tipRatio);
+            otherExtrasShareCents += Math.round(share * otherRatio);
+          }
+        }
+      } else {
+        const subtotal = new Map<number, number>(allIds.map((id) => [id, 0]));
+        for (const item of expense.lineItems) {
+          const assignees = item.participantIds.filter((id) => allIds.includes(id));
+          if (assignees.length === 0) continue;
+          const shares = equalSplit(item.amountCents, assignees.length);
+          const idx = assignees.indexOf(participantId);
+          if (idx >= 0) {
+            const share = shares[idx];
+            subtotal.set(participantId, (subtotal.get(participantId) ?? 0) + share);
+            items.push({
+              expenseId: 0,
+              expenseDescription: expense.description,
+              itemName: item.name,
+              itemAmountCents: item.amountCents,
+              shareCents: share,
+            });
+          }
+        }
+        const itemsTotal = expense.lineItems.reduce((a, b) => a + b.amountCents, 0);
+        const extras = [
+          { amount: expense.taxCents, type: "tax" as const },
+          { amount: expense.tipCents, type: "tip" as const },
+          {
+            amount: expense.totalCents - itemsTotal - expense.taxCents - expense.tipCents,
+            type: "other" as const,
+          },
+        ];
+        const mySubtotal = subtotal.get(participantId) ?? 0;
+        const totalSubtotal = allIds.reduce((sum, id) => sum + (subtotal.get(id) ?? 0), 0);
+        for (const extra of extras) {
+          if (extra.amount === 0) continue;
+          let share = 0;
+          if (totalSubtotal > 0) {
+            share = Math.round((mySubtotal / totalSubtotal) * extra.amount);
+          } else if (allIds.length > 0) {
+            share = Math.round(extra.amount / allIds.length);
+          }
+          if (extra.type === "tax") taxShareCents += share;
+          else if (extra.type === "tip") tipShareCents += share;
+          else otherExtrasShareCents += share;
+        }
       }
-    }
-
-    const itemsTotal = expense.lineItems.reduce((a, b) => a + b.amountCents, 0);
-    const extras = [
-      { amount: expense.taxCents, type: "tax" as const },
-      { amount: expense.tipCents, type: "tip" as const },
-      {
-        amount: expense.totalCents - itemsTotal - expense.taxCents - expense.tipCents,
-        type: "other" as const,
-      },
-    ];
-
-    const mySubtotal = subtotal.get(participantId) ?? 0;
-    const totalSubtotal = participantIds.reduce((sum, id) => sum + (subtotal.get(id) ?? 0), 0);
-
-    for (const extra of extras) {
-      if (extra.amount === 0) continue;
-      let share = 0;
-      if (totalSubtotal > 0) {
-        share = Math.round((mySubtotal / totalSubtotal) * extra.amount);
-      } else if (participantIds.length > 0) {
-        share = Math.round(extra.amount / participantIds.length);
-      }
-      if (extra.type === "tax") taxShareCents += share;
-      else if (extra.type === "tip") tipShareCents += share;
-      else otherExtrasShareCents += share;
     }
   }
 

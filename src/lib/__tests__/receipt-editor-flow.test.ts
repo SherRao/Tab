@@ -15,12 +15,14 @@ function toEditorInitial(draft: ReturnType<typeof parseReceipt>) {
       name: i.name,
       amount: (i.amountCents / 100).toFixed(2),
       participantIds: [],
+      quantity: "",
+      participantQuantities: {},
     })),
     tax: draft.taxCents ? (draft.taxCents / 100).toFixed(2) : "",
     tip: draft.tipCents ? (draft.tipCents / 100).toFixed(2) : "",
     total: draft.totalCents ? (draft.totalCents / 100).toFixed(2) : "",
     splitMode: "itemized" as const,
-    evenParticipantIds: [],
+    selectedParticipantIds: [] as number[],
   };
 }
 
@@ -29,9 +31,9 @@ describe("scanned draft feeds the expense editor", () => {
     const draft = parseReceipt(fixture("clean.txt"));
     const initial = toEditorInitial(draft);
     expect(initial.items).toEqual([
-      { name: "2x Latte", amount: "9.00", participantIds: [] },
-      { name: "1x Croissant", amount: "4.25", participantIds: [] },
-      { name: "Avocado Toast", amount: "12.50", participantIds: [] },
+      { name: "2x Latte", amount: "9.00", participantIds: [], quantity: "", participantQuantities: {} },
+      { name: "1x Croissant", amount: "4.25", participantIds: [], quantity: "", participantQuantities: {} },
+      { name: "Avocado Toast", amount: "12.50", participantIds: [], quantity: "", participantQuantities: {} },
     ]);
     expect(initial.tax).toBe("2.06");
     expect(initial.tip).toBe("4.00");

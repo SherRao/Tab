@@ -2,6 +2,7 @@ import { db } from "@/db";
 import {
   events,
   expenses,
+  expenseShares,
   lineItemShares,
   lineItems,
   participantClaims,
@@ -85,6 +86,16 @@ export interface ExpenseWithItems {
     item: typeof lineItems.$inferSelect;
     participantIds: number[];
   }[];
+  shares: {
+    id: number;
+    expenseId: number;
+    participantId: number | null;
+    groupId: number | null;
+    lineItemId: number | null;
+    weightType: "equal" | "percent" | "amount";
+    weightValue: number;
+    createdAt: Date;
+  }[];
 }
 
 export async function getExpenses(eventId: number): Promise<ExpenseWithItems[]> {
@@ -108,6 +119,18 @@ export async function getExpenses(eventId: number): Promise<ExpenseWithItems[]> 
   const shareRows = itemIds.length
     ? await db.select().from(lineItemShares).where(inArray(lineItemShares.lineItemId, itemIds))
     : [];
+
+  // Fetch expense_shares for all expenses
+  const expenseShareRows = await db
+    .select()
+    .from(expenseShares)
+    .where(
+      inArray(
+        expenseShares.expenseId,
+        rows.map((r) => r.id),
+      ),
+    );
+
   return rows.map((expense) => ({
     expense,
     items: itemRows
@@ -117,6 +140,18 @@ export async function getExpenses(eventId: number): Promise<ExpenseWithItems[]> 
         participantIds: shareRows
           .filter((s) => s.lineItemId === item.id)
           .map((s) => s.participantId),
+      })),
+    shares: expenseShareRows
+      .filter((s) => s.expenseId === expense.id)
+      .map((s) => ({
+        id: s.id,
+        expenseId: s.expenseId,
+        participantId: s.participantId,
+        groupId: s.groupId,
+        lineItemId: s.lineItemId,
+        weightType: s.weightType as "equal" | "percent" | "amount",
+        weightValue: s.weightValue,
+        createdAt: s.createdAt,
       })),
   }));
 }

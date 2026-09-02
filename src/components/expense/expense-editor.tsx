@@ -7,19 +7,16 @@ import { toCents, toFixedMoney } from "@/lib/format";
 import { ChipToggleGroup } from "@/components/ui/chip-toggle-group";
 import { Field } from "@/components/ui/field";
 import { MoneyInput } from "@/components/ui/money-input";
-import { LineItemRow } from "./line-item-row";
-import { MODES, SplitModeSelector, type SplitMode } from "./split-mode-selector";
+import { LineItemRow, type EditorItem } from "./line-item-row";
+import { SplitModeSelector, type SplitMode } from "./split-mode-selector";
+import { TotalSharesPanel, type ShareConfig } from "./total-shares-panel";
 
 export interface EditorParticipant {
   id: number;
   name: string;
 }
 
-export interface EditorItem {
-  name: string;
-  amount: string;
-  participantIds: number[];
-}
+export type { EditorItem };
 
 export interface ExpenseEditorProps {
   token: string;
@@ -32,10 +29,13 @@ export interface ExpenseEditorProps {
     tax: string;
     tip: string;
     total: string;
-    splitMode: "itemized" | "even" | "group";
-    evenParticipantIds: number[];
-    groupIds: number[] | undefined;
+    splitMode: "itemized" | "even";
+    selectedParticipantIds: number[];
   };
+}
+
+function emptyItem(): EditorItem {
+  return { name: "", amount: "", participantIds: [], quantity: "", participantQuantities: {} };
 }
 
 export default function ExpenseEditor({
@@ -48,14 +48,27 @@ export default function ExpenseEditor({
   const [description, setDescription] = useState(initial?.description ?? "");
   const [payerId, setPayerId] = useState<number | undefined>(initial?.payerId);
   const [items, setItems] = useState<EditorItem[]>(
-    initial?.items ?? [{ name: "", amount: "", participantIds: [] }],
+    initial?.items ?? [emptyItem()],
   );
   const [tax, setTax] = useState(initial?.tax ?? "");
   const [tip, setTip] = useState(initial?.tip ?? "");
   const [total, setTotal] = useState(initial?.total ?? "");
   const [splitMode, setSplitMode] = useState<SplitMode>(initial?.splitMode ?? "itemized");
-  const [evenIds, setEvenIds] = useState<number[]>(initial?.evenParticipantIds ?? []);
-  const [groupIds, setGroupIds] = useState<number[]>(initial?.groupIds ?? []);
+  const [selectedParticipantIds, setSelectedParticipantIds] = useState<number[]>(
+    initial?.selectedParticipantIds ?? participants.map((p) => p.id),
+  );
+  const [shares, setShares] = useState<ShareConfig[]>(
+    initial?.selectedParticipantIds?.map((pid) => ({
+      participantId: pid,
+      weightType: "equal" as const,
+      weightValue: 10000,
+    })) ??
+      participants.map((p) => ({
+        participantId: p.id,
+        weightType: "equal" as const,
+        weightValue: 10000,
+      })),
+  );
   const [saving, setSaving] = useState(false);
 
   const computed = useMemo(() => {
@@ -94,10 +107,59 @@ export default function ExpenseEditor({
     updateItem(idx, { participantIds: participants.map((p) => p.id) });
   }
 
+  function buildShares() {
+    if (splitMode === "even") {
+      return shares.map((s) => ({
+        participantId: s.participantId,
+        lineItemId: null as number | null,
+        weightType: s.weightType,
+        weightValue: s.weightValue,
+      }));
+    }
+    // Itemized: convert quantities to percent weights per line item
+    const result: {
+      participantId: number;
+      lineItemId: number | null;
+      weightType: "equal" | "percent" | "amount";
+      weightValue: number;
+    }[] = [];
+    for (const item of items) {
+      if (!item.name.trim() && !item.amount.trim()) continue;
+      const totalQty = parseInt(item.quantity) || 0;
+      if (totalQty > 0 && item.participantIds.length > 0) {
+        // Convert quantities to percent weights
+        for (const pid of item.participantIds) {
+          const qty = item.participantQuantities[pid] || 0;
+          const weightValue = Math.round((qty / totalQty) * 10000);
+          result.push({
+            participantId: pid,
+            lineItemId: null, // will be set by the action after line item insertion
+            weightType: "percent",
+            weightValue,
+          });
+        }
+      }
+      // If no quantities, the action falls back to equal splits from participantIds
+    }
+    return result;
+  }
+
   async function handleSave() {
     if (payerId === undefined) return;
     setSaving(true);
     try {
+      const filteredItems = items
+        .filter((it) => it.name.trim() || it.amount.trim())
+        .map((it) => ({
+          name: it.name.trim() || "Item",
+          amountCents: toCents(it.amount) || 0,
+          participantIds: it.participantIds,
+          quantity: parseInt(it.quantity) || 0,
+          participantQuantities: it.participantQuantities,
+        }));
+
+      const payloadShares = buildShares();
+
       const payload = {
         payerId,
         description,
@@ -105,15 +167,8 @@ export default function ExpenseEditor({
         tipCents: toCents(tip) || 0,
         totalCents: toCents(total) || 0,
         splitMode,
-        evenParticipantIds: evenIds,
-        groupIds: groupIds.length > 0 ? groupIds : undefined,
-        items: items
-          .filter((it) => it.name.trim() || it.amount.trim())
-          .map((it) => ({
-            name: it.name.trim() || "Item",
-            amountCents: toCents(it.amount) || 0,
-            participantIds: it.participantIds,
-          })),
+        items: filteredItems,
+        shares: payloadShares,
       };
       if (expenseId) {
         await updateExpenseAction(token, expenseId, payload);
@@ -125,8 +180,6 @@ export default function ExpenseEditor({
       setSaving(false);
     }
   }
-
-  const activeMode = MODES.find((m) => m.value === splitMode)!;
 
   return (
     <div className="receipt-card receipt-edge">
@@ -170,9 +223,7 @@ export default function ExpenseEditor({
               <h2 className="label-mono text-stone-500">Line items</h2>
               <button
                 type="button"
-                onClick={() =>
-                  setItems((prev) => [...prev, { name: "", amount: "", participantIds: [] }])
-                }
+                onClick={() => setItems((prev) => [...prev, emptyItem()])}
                 className="label-mono px-1 py-0.5 text-accent-strong transition hover:underline"
               >
                 + Add item
@@ -205,57 +256,41 @@ export default function ExpenseEditor({
               <ChipToggleGroup
                 size="md"
                 participants={participants}
-                selectedIds={evenIds}
+                selectedIds={selectedParticipantIds}
+                showSelectAll
                 onToggle={(pid) =>
-                  setEvenIds((prev) =>
-                    prev.includes(pid) ? prev.filter((x) => x !== pid) : [...prev, pid],
-                  )
+                  setSelectedParticipantIds((prev) => {
+                    const next = prev.includes(pid) ? prev.filter((x) => x !== pid) : [...prev, pid];
+                    setShares(
+                      next.map((id) => {
+                        const existing = shares.find((s) => s.participantId === id);
+                        return existing ?? { participantId: id, weightType: "equal" as const, weightValue: 10000 };
+                      }),
+                    );
+                    return next;
+                  })
                 }
+              />
+            </div>
+            <div className="mt-4">
+              <TotalSharesPanel
+                participants={participants}
+                shares={shares}
+                totalCents={toCents(total) || 0}
+                onChange={setShares}
               />
             </div>
           </section>
         )}
 
-        {splitMode === "group" && (
-          <p className="flex items-center gap-2 border border-dashed border-accent/50 bg-accent/10 px-4 py-3 font-mono text-xs text-accent-strong">
-            Everyone in the event splits the whole total equally.
-          </p>
-        )}
-
-        <div className="mt-4 space-y-2">
-          <label className="label-mono block text-stone-500">Assign to group(s)</label>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            {participants.map((p) => (
-              <label key={p.id} className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={groupIds.includes(p.id)}
-                  onChange={(e) =>
-                    setGroupIds(
-                      e.target.checked ? [...groupIds, p.id] : groupIds.filter((id) => id !== p.id),
-                    )
-                  }
-                  className="rounded border-accent-strong"
-                />
-                {p.name}
-              </label>
-            ))}
-          </div>
-          <p className="mt-2 font-mono text-[11px] text-stone-400">
-            {groupIds.length} participant{groupIds.length !== 1 ? "s" : ""} selected
-          </p>
-        </div>
-
-        {(splitMode === "itemized" || splitMode === "group") && (
-          <section className="grid grid-cols-2 gap-3">
-            <Field label="Tax">
-              <MoneyInput value={tax} onChange={setTax} />
-            </Field>
-            <Field label="Tip">
-              <MoneyInput value={tip} onChange={setTip} />
-            </Field>
-          </section>
-        )}
+        <section className="grid grid-cols-2 gap-3">
+          <Field label="Tax">
+            <MoneyInput value={tax} onChange={setTax} />
+          </Field>
+          <Field label="Tip">
+            <MoneyInput value={tip} onChange={setTip} />
+          </Field>
+        </section>
 
         {splitMode === "itemized" && computed.discrepancy !== 0 && (
           <p className="border-l-4 border-l-amber-400 bg-amber-50 px-4 py-3 font-mono text-xs leading-relaxed text-amber-800">
@@ -287,7 +322,7 @@ export default function ExpenseEditor({
         </button>
       </div>
       <p className="pb-6 text-center font-mono text-[11px] text-stone-400 sm:pb-7">
-        {activeMode.label.toLowerCase()} · tax &amp; tip are shared proportionally
+        {splitMode === "itemized" ? "By items" : "As a total"} · tax &amp; tip are shared proportionally
       </p>
     </div>
   );

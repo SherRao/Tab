@@ -19,9 +19,8 @@ export interface NewExpenseFlowProps {
     tax: string;
     tip: string;
     total: string;
-    splitMode: "itemized" | "even" | "group";
-    evenParticipantIds: number[];
-    groupIds: number[] | undefined;
+    splitMode: "itemized" | "even";
+    selectedParticipantIds: number[];
   };
 }
 
@@ -34,13 +33,12 @@ export default function NewExpenseFlow({
     editorInitial ?? {
       description: "",
       payerId: undefined,
-      items: [{ name: "", amount: "", participantIds: [] }],
+      items: [{ name: "", amount: "", participantIds: [], quantity: "", participantQuantities: {} }],
       tax: "",
       tip: "",
       total: "",
       splitMode: "itemized",
-      evenParticipantIds: [],
-      groupIds: undefined,
+      selectedParticipantIds: participants.map((p) => p.id),
     },
   );
   const [stage, setStage] = useState<Stage>("choose");
@@ -54,18 +52,19 @@ export default function NewExpenseFlow({
       name: i.name,
       amount: toFixedMoney(i.amountCents),
       participantIds: [],
+      quantity: "",
+      participantQuantities: {},
     }));
     setInitial({
       description: "",
       payerId: undefined,
       items:
-        scannedItems.length > 0 ? scannedItems : [{ name: "", amount: "", participantIds: [] }],
+        scannedItems.length > 0 ? scannedItems : [{ name: "", amount: "", participantIds: [], quantity: "", participantQuantities: {} }],
       tax: draft.taxCents ? toFixedMoney(draft.taxCents) : "",
       tip: draft.tipCents ? toFixedMoney(draft.tipCents) : "",
       total: draft.totalCents ? toFixedMoney(draft.totalCents) : "",
       splitMode: "itemized",
-      evenParticipantIds: [],
-      groupIds: [],
+      selectedParticipantIds: participants.map((p) => p.id),
     });
     setScanNotice(
       outcome === "success"

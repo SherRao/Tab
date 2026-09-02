@@ -2,8 +2,7 @@
 
 export const MODES = [
   { value: "itemized", label: "By items", hint: "Tag who got what on each line" },
-  { value: "even", label: "Even split", hint: "Divide the total between chosen people" },
-  { value: "group", label: "Group", hint: "Everyone splits it all — birthday mode" },
+  { value: "even", label: "As a total", hint: "Divide the total between chosen people" },
 ] as const;
 
 export type SplitMode = (typeof MODES)[number]["value"];
@@ -18,7 +17,7 @@ export function SplitModeSelector({
   return (
     <section>
       <label className="label-mono block text-stone-500">How should this be split?</label>
-      <div className="mt-2 grid grid-cols-3 gap-2">
+      <div className="mt-2 grid grid-cols-2 gap-2">
         {MODES.map((m) => (
           <button
             key={m.value}

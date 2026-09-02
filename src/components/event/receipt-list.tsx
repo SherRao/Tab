@@ -22,13 +22,22 @@ export interface ReceiptCardData {
     splitMode: string;
   };
   items: ReceiptItemRow[];
+  shares: {
+    participantId?: number;
+    groupId?: number;
+    lineItemId?: number | null;
+    weightType: "equal" | "percent" | "amount";
+    weightValue: number;
+  }[];
 }
 
-const MODE_LABELS: Record<string, string> = {
-  itemized: "itemized",
-  even: "even split",
-  group: "group",
-};
+function getModeLabel(splitMode: string, shares: ReceiptCardData["shares"]): string {
+  if (splitMode === "itemized") return "By items";
+  // For even mode, check if shares are all equal or custom
+  const totalShares = shares.filter((s) => s.lineItemId == null);
+  const hasCustom = totalShares.some((s) => s.weightType !== "equal");
+  return hasCustom ? "As a total · Custom" : "As a total · Equal";
+}
 
 const TILTS = ["sm:-rotate-[0.4deg]", "", "sm:rotate-[0.4deg]"];
 
@@ -51,9 +60,9 @@ export function ReceiptList({
         />
       ) : (
         <ul className="mt-6 space-y-7">
-          {receipts.map(({ expense, items }, idx) => (
+          {receipts.map(({ expense, items, shares }, idx) => (
             <li key={expense.id} className={TILTS[idx % 3]}>
-              <ReceiptCard token={token} expense={expense} items={items} nameOf={nameOf} />
+              <ReceiptCard token={token} expense={expense} items={items} shares={shares} nameOf={nameOf} />
             </li>
           ))}
         </ul>
@@ -66,11 +75,13 @@ function ReceiptCard({
   token,
   expense,
   items,
+  shares,
   nameOf,
 }: {
   token: string;
   expense: ReceiptCardData["expense"];
   items: ReceiptItemRow[];
+  shares: ReceiptCardData["shares"];
   nameOf: Map<number, string>;
 }) {
   return (
@@ -81,7 +92,7 @@ function ReceiptCard({
             {expense.description || "Untitled"}
           </h3>
           <p className="label-mono mt-1 text-stone-400">
-            paid by {nameOf.get(expense.payerId)} · {MODE_LABELS[expense.splitMode]}
+            paid by {nameOf.get(expense.payerId)} · {getModeLabel(expense.splitMode, shares)}
           </p>
         </div>
         <span className="font-mono text-xl font-bold tracking-tight tabular-nums">

@@ -39,17 +39,24 @@ function toLedger(
 ) {
   return ledger.computeNetBalances(
     detail.participants,
-    expenseRows.map(({ expense, items }) => ({
+    expenseRows.map(({ expense, items, shares }) => ({
       payerId: expense.payerId,
       taxCents: expense.taxCents,
       tipCents: expense.tipCents,
       totalCents: expense.totalCents,
-      splitMode: expense.splitMode,
-      groupIds: expense.groupIds ?? undefined,
+      splitMode: expense.splitMode as "itemized" | "even",
       lineItems: items.map((i) => ({
+        id: i.item.id,
         name: i.item.name,
         amountCents: i.item.amountCents,
         participantIds: i.participantIds,
+      })),
+      shares: shares.map((s) => ({
+        participantId: s.participantId ?? undefined,
+        groupId: s.groupId ?? undefined,
+        lineItemId: s.lineItemId ?? undefined,
+        weightType: s.weightType,
+        weightValue: s.weightValue,
       })),
     })),
   );
@@ -87,7 +94,7 @@ describe("full event flow", () => {
     expect(redirectMock).toHaveBeenCalledWith(expect.stringMatching(/^\/e\/[A-Za-z0-9_-]+$/));
   });
 
-  it("exploration scenario: one payer, mixed assignments, birthday expense", async () => {
+  it("exploration scenario: one payer, mixed assignments, even expense", async () => {
     const { event } = await queries.createEventRecord("Trip", ["Alice", "Bob", "Carol"]);
     const detail0 = await queries.getEventByToken(event.shareToken);
     const [A, B, C] = detail0!.participants.map((p) => p.id);
@@ -99,12 +106,11 @@ describe("full event flow", () => {
       tipCents: 600,
       totalCents: 4056,
       splitMode: "itemized",
-      groupIds: [],
-      evenParticipantIds: [],
       items: [
         { name: "Tacos", amountCents: 2400, participantIds: [A, B] },
         { name: "Guac", amountCents: 800, participantIds: [A, C] },
       ],
+      shares: [],
     });
     await actions.saveExpenseAction(event.shareToken, {
       payerId: A,
@@ -113,9 +119,12 @@ describe("full event flow", () => {
       tipCents: 0,
       totalCents: 9000,
       splitMode: "even",
-      groupIds: [A, B, C],
-      evenParticipantIds: [],
       items: [],
+      shares: [
+        { participantId: A, weightType: "equal", weightValue: 10000 },
+        { participantId: B, weightType: "equal", weightValue: 10000 },
+        { participantId: C, weightType: "equal", weightValue: 10000 },
+      ],
     });
 
     let detail = await queries.getEventByToken(event.shareToken);
@@ -134,14 +143,17 @@ describe("full event flow", () => {
 
     await actions.saveExpenseAction(event.shareToken, {
       payerId: B,
-      description: "Birthday dinner for Bob",
+      description: "Even split expense",
       taxCents: 0,
       tipCents: 0,
       totalCents: 3000,
-      splitMode: "group",
-      groupIds: [],
-      evenParticipantIds: [],
-      items: [{ name: "Cake", amountCents: 3000, participantIds: [] }],
+      splitMode: "even",
+      items: [],
+      shares: [
+        { participantId: A, weightType: "equal", weightValue: 10000 },
+        { participantId: B, weightType: "equal", weightValue: 10000 },
+        { participantId: C, weightType: "equal", weightValue: 10000 },
+      ],
     });
 
     detail = await queries.getEventByToken(event.shareToken);
@@ -154,10 +166,10 @@ describe("full event flow", () => {
       { fromId: B, toId: A, amountCents: 2521 },
     ]);
 
-    const birthday = expenseRows.find((r) => r.expense.description === "Birthday dinner for Bob")!;
+    const evenExpense = expenseRows.find((r) => r.expense.description === "Even split expense")!;
     const deleteForm = new FormData();
     deleteForm.set("token", event.shareToken);
-    deleteForm.set("expenseId", String(birthday.expense.id));
+    deleteForm.set("expenseId", String(evenExpense.expense.id));
     await actions.deleteExpenseAction(deleteForm);
     detail = await queries.getEventByToken(event.shareToken);
     expenseRows = await queries.getExpenses(detail!.event.id);
@@ -184,10 +196,59 @@ describe("full event flow", () => {
         tipCents: 0,
         totalCents: 1000,
         splitMode: "even",
-        groupIds: detail!.participants.map((p) => p.id),
-        evenParticipantIds: [],
         items: [],
+        shares: detail!.participants.map((p) => ({
+          participantId: p.id,
+          weightType: "equal" as const,
+          weightValue: 10000,
+        })),
       }),
     ).rejects.toThrow("Payer is not a participant");
+  });
+
+  it("creates expense with custom percent shares and verifies balances", async () => {
+    const { event } = await queries.createEventRecord("Percent Test", ["Alice", "Bob"]);
+    const detail = await queries.getEventByToken(event.shareToken);
+    const [A, B] = detail!.participants.map((p) => p.id);
+
+    await actions.saveExpenseAction(event.shareToken, {
+      payerId: A,
+      description: "Custom split",
+      taxCents: 0,
+      tipCents: 0,
+      totalCents: 10000,
+      splitMode: "even",
+      items: [],
+      shares: [
+        { participantId: A, weightType: "percent", weightValue: 7000 },
+        { participantId: B, weightType: "percent", weightValue: 3000 },
+      ],
+    });
+
+    const expenseRows = await queries.getExpenses(event.id);
+    const nets = toLedger(detail!, expenseRows);
+    // Alice paid 10000, consumed 7000 (70%), Bob consumed 3000 (30%)
+    expect(nets.get(A)).toBe(3000);
+    expect(nets.get(B)).toBe(-3000);
+    expect([...nets.values()].reduce((a, b) => a + b, 0)).toBe(0);
+  });
+
+  it("validates percent shares must sum to 100%", async () => {
+    const { event } = await queries.createEventRecord("Validation Test", ["Alice", "Bob"]);
+    await expect(
+      actions.saveExpenseAction(event.shareToken, {
+        payerId: (await queries.getEventByToken(event.shareToken))!.participants[0].id,
+        description: "Bad percents",
+        taxCents: 0,
+        tipCents: 0,
+        totalCents: 10000,
+        splitMode: "even",
+        items: [],
+        shares: [
+          { participantId: 1, weightType: "percent", weightValue: 6000 },
+          { participantId: 2, weightType: "percent", weightValue: 3000 },
+        ],
+      }),
+    ).rejects.toThrow("Percent shares must sum to 100%");
   });
 });

@@ -3,6 +3,7 @@
 import { db } from "@/db";
 import {
   expenses,
+  expenseShares,
   lineItemShares,
   lineItems,
   participantClaims,
@@ -66,7 +67,7 @@ export async function createEventAction(formData: FormData) {
     await addParticipantRow(event.id, { mode: "account", userId: user.id });
 } catch {
     await addParticipantRow(event.id, { mode: "guest", name: user.displayName ?? user.username ?? "You" });
-}
+  }
 
   // Send invitation emails for any invited participants created up front.
   for (const person of created) {
@@ -138,16 +139,21 @@ export async function addParticipantAction(formData: FormData) {
   revalidatePath(`/e/${token}`);
 }
 
-interface ExpensePayload {
+export interface ExpensePayload {
   payerId: number;
   description: string;
   taxCents: number;
   tipCents: number;
   totalCents: number;
   splitMode: SplitMode;
-  groupIds: number[] | undefined;
-  evenParticipantIds: number[] | undefined;
-  items: { name: string; amountCents: number; participantIds: number[] }[];
+  items: { name: string; amountCents: number; participantIds: number[]; quantity?: number; participantQuantities?: Record<number, number> }[];
+  shares: {
+    participantId?: number;
+    groupId?: number;
+    lineItemId?: number | null;
+    weightType: "equal" | "percent" | "amount";
+    weightValue: number;
+  }[];
 }
 
 export async function saveExpenseAction(token: string, payload: ExpensePayload) {
@@ -157,6 +163,21 @@ export async function saveExpenseAction(token: string, payload: ExpensePayload) 
   if (!SPLIT_MODES.includes(payload.splitMode)) throw new Error("Invalid split mode");
   const validIds = new Set(detail.participants.map((p) => p.id));
   if (!validIds.has(payload.payerId)) throw new Error("Payer is not a participant of this event");
+
+  // Validate shares
+  if (payload.shares.length > 0) {
+    const totalLevelShares = payload.shares.filter((s) => s.lineItemId == null);
+    const percentShares = totalLevelShares.filter((s) => s.weightType === "percent");
+    if (percentShares.length > 0) {
+      const sum = percentShares.reduce((a, s) => a + s.weightValue, 0);
+      if (sum !== 10000) throw new Error("Percent shares must sum to 100%");
+    }
+    const amountShares = totalLevelShares.filter((s) => s.weightType === "amount");
+    if (amountShares.length > 0) {
+      const sum = amountShares.reduce((a, s) => a + s.weightValue, 0);
+      if (sum !== payload.totalCents) throw new Error("Amount shares must sum to total");
+    }
+  }
 
   const [expense] = await db
     .insert(expenses)
@@ -168,17 +189,24 @@ export async function saveExpenseAction(token: string, payload: ExpensePayload) 
       tipCents: payload.tipCents,
       totalCents: payload.totalCents,
       splitMode: payload.splitMode,
-      groupIds:
-        payload.splitMode === "even"
-          ? payload.groupIds?.filter((id) => validIds.has(id))
-          : undefined,
-      evenParticipantIds:
-        payload.splitMode === "even"
-          ? payload.evenParticipantIds?.filter((id) => validIds.has(id))
-          : undefined,
     })
     .returning();
 
+  // Insert expense_shares
+  if (payload.shares.length > 0) {
+    await db.insert(expenseShares).values(
+      payload.shares.map((s) => ({
+        expenseId: expense.id,
+        participantId: s.participantId ?? null,
+        groupId: s.groupId ?? null,
+        lineItemId: s.lineItemId ?? null,
+        weightType: s.weightType,
+        weightValue: s.weightValue,
+      })),
+    );
+  }
+
+  // Also insert line items and line_item_shares for itemized mode
   for (const item of payload.items) {
     const [row] = await db
       .insert(lineItems)
@@ -215,6 +243,21 @@ export async function updateExpenseAction(
   const validIds = new Set(detail.participants.map((p) => p.id));
   if (!validIds.has(payload.payerId)) throw new Error("Payer is not a participant of this event");
 
+  // Validate shares
+  if (payload.shares.length > 0) {
+    const totalLevelShares = payload.shares.filter((s) => s.lineItemId == null);
+    const percentShares = totalLevelShares.filter((s) => s.weightType === "percent");
+    if (percentShares.length > 0) {
+      const sum = percentShares.reduce((a, s) => a + s.weightValue, 0);
+      if (sum !== 10000) throw new Error("Percent shares must sum to 100%");
+    }
+    const amountShares = totalLevelShares.filter((s) => s.weightType === "amount");
+    if (amountShares.length > 0) {
+      const sum = amountShares.reduce((a, s) => a + s.weightValue, 0);
+      if (sum !== payload.totalCents) throw new Error("Amount shares must sum to total");
+    }
+  }
+
   await db
     .update(expenses)
     .set({
@@ -224,12 +267,25 @@ export async function updateExpenseAction(
       tipCents: payload.tipCents,
       totalCents: payload.totalCents,
       splitMode: payload.splitMode,
-      groupIds: payload.splitMode === "even" ? (payload.groupIds ?? undefined) : undefined,
-      evenParticipantIds:
-        payload.splitMode === "even" ? (payload.evenParticipantIds ?? undefined) : undefined,
     })
     .where(eq(expenses.id, expenseId));
 
+  // Replace expense_shares
+  await db.delete(expenseShares).where(eq(expenseShares.expenseId, expenseId));
+  if (payload.shares.length > 0) {
+    await db.insert(expenseShares).values(
+      payload.shares.map((s) => ({
+        expenseId,
+        participantId: s.participantId ?? null,
+        groupId: s.groupId ?? null,
+        lineItemId: s.lineItemId ?? null,
+        weightType: s.weightType,
+        weightValue: s.weightValue,
+      })),
+    );
+  }
+
+  // Replace line items
   const oldItems = await db
     .select({ id: lineItems.id })
     .from(lineItems)
