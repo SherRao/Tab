@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { parseReceipt } from "../receipt-parse";
-import type { EditorItem } from "@/components/expense-editor";
+import type { EditorItem } from "@/components/expense/expense-editor";
 
 const fixture = (name: string) =>
   readFileSync(path.join(__dirname, "../__fixtures__/receipts", name), "utf8");
