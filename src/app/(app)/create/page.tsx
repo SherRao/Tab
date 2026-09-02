@@ -1,13 +1,11 @@
 import { createEventAction } from "@/lib/actions";
 import { getSessionUser } from "@/lib/auth";
 import { CreateTabForm } from "@/components/create-tab-form";
+import { delayStyle } from "@/lib/motion";
 import { redirect } from "next/navigation";
-import type { CSSProperties } from "react";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Create a new tab" };
-
-const delayStyle = (ms: number) => ({ "--delay": `${ms}ms` }) as CSSProperties;
 
 export default async function CreatePage({
   searchParams,

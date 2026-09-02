@@ -1,7 +1,7 @@
 import { getEventByToken } from "@/lib/queries";
 import { notFound } from "next/navigation";
-import NewExpenseFlow from "@/components/new-expense-flow";
-import type { EditorParticipant } from "@/components/expense-editor";
+import NewExpenseFlow from "@/components/expense/new-expense-flow";
+import type { EditorParticipant } from "@/components/expense/expense-editor";
 import Link from "next/link";
 
 export default async function NewExpensePage({ params }: { params: Promise<{ token: string }> }) {

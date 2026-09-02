@@ -1,6 +1,7 @@
 import { getEventByToken, getExpenses } from "@/lib/queries";
+import { toFixedMoney } from "@/lib/format";
 import { notFound } from "next/navigation";
-import ExpenseEditor from "@/components/expense-editor";
+import ExpenseEditor from "@/components/expense/expense-editor";
 import Link from "next/link";
 
 export default async function EditExpensePage({
@@ -35,12 +36,12 @@ export default async function EditExpensePage({
             payerId: expense.payerId,
             items: items.map((i) => ({
               name: i.item.name,
-              amount: (i.item.amountCents / 100).toFixed(2),
+              amount: toFixedMoney(i.item.amountCents),
               participantIds: i.participantIds,
             })),
-            tax: (expense.taxCents / 100).toFixed(2),
-            tip: (expense.tipCents / 100).toFixed(2),
-            total: (expense.totalCents / 100).toFixed(2),
+            tax: toFixedMoney(expense.taxCents),
+            tip: toFixedMoney(expense.tipCents),
+            total: toFixedMoney(expense.totalCents),
             splitMode: expense.splitMode,
             evenParticipantIds: [],
             groupIds: expense.groupIds ?? [],

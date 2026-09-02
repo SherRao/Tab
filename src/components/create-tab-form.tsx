@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState, type CSSProperties, type FormEvent } from "react";
-import { CreateEventPeopleInput } from "@/components/add-people";
+import { useState, type CSSProperties, type FormEvent } from "react";
+import { CreateEventPeopleInput } from "@/components/people/create-event-people-input";
+import { ErrorNote } from "@/components/ui/error-note";
 
 const SUGGESTIONS = ["Dinner", "Weekend trip", "Apartment", "Bachelorette"];
 
@@ -20,7 +21,6 @@ export function CreateTabForm({
   const [name, setName] = useState("");
   const [peopleCount, setPeopleCount] = useState(0);
   const [submitting, setSubmitting] = useState(false);
-  const formRef = useRef<HTMLFormElement>(null);
 
   function continueToPeople(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -30,13 +30,15 @@ export function CreateTabForm({
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitting) return;
+    const form = event.currentTarget;
     setSubmitting(true);
-    setTimeout(() => formRef.current?.requestSubmit(), 500);
+    window.setTimeout(() => {
+      void Promise.resolve(action(new FormData(form)));
+    }, 500);
   }
 
   return (
     <form
-      ref={formRef}
       action={action}
       onSubmit={step === 1 ? continueToPeople : handleSubmit}
       className="paper-card receipt-edge rise-in mt-8 p-6 sm:p-8"
@@ -52,9 +54,9 @@ export function CreateTabForm({
         ))}
       </div>
       {error && (
-        <p className="mt-4 border border-red-200 bg-red-50 px-3 py-2 font-mono text-xs text-red-700">
+        <ErrorNote variant="form" className="mt-4">
           Please provide a name and one other person.
-        </p>
+        </ErrorNote>
       )}
 
       {step === 1 ? (

@@ -71,12 +71,16 @@ export async function createEventAction(formData: FormData) {
   // Send invitation emails for any invited participants created up front.
   for (const person of created) {
     if (person.email == null) continue;
-    const token = await createLoginToken(person.email, person.id);
-    await sendEmail({
-      to: person.email,
-      subject: `You're on "${event.name}" — join your tab`,
-      text: invitationEmailBody(event.name, token, `/e/${event.shareToken}`),
-    });
+    try {
+      const token = await createLoginToken(person.email, person.id);
+      await sendEmail({
+        to: person.email,
+        subject: `You're on "${event.name}" — join your tab`,
+        text: invitationEmailBody(event.name, token, `/e/${event.shareToken}`),
+      });
+    } catch (err) {
+      console.error("invite email failed", err);
+    }
   }
 
   revalidatePath("/");
