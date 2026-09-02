@@ -231,7 +231,7 @@ export function computeParticipantBreakdown(
         items.push({
           expenseId: 0,
           expenseDescription: expense.description,
-          itemName: "Even split",
+          itemName: expense.description || "Split",
           itemAmountCents: expense.totalCents,
           shareCents: share,
         });

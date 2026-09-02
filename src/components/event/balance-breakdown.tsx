@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { formatCents } from "@/lib/format";
 
 export interface BreakdownItemView {
@@ -21,22 +21,52 @@ export interface ParticipantBreakdownView {
 }
 
 function BreakdownPanel({ breakdown }: { breakdown: ParticipantBreakdownView }) {
+  const groups = new Map<string | undefined, BreakdownItemView[]>();
+  for (const item of breakdown.items) {
+    const key = item.expenseDescription;
+    const arr = groups.get(key);
+    if (arr) arr.push(item);
+    else groups.set(key, [item]);
+  }
+  const groupEntries = Array.from(groups.entries());
+
   return (
-    <div className="mt-2 ml-[18px] border-l border-dashed border-foreground/10 pl-4 space-y-2 text-sm">
-      {breakdown.items.length > 0 && (
-        <>
-          <div className="label-mono text-stone-400">Items</div>
-          <ul className="space-y-1">
-            {breakdown.items.map((item, i) => (
-              <li key={i} className="flex justify-between gap-2 text-[13px]">
-                <span className="truncate">{item.itemName}</span>
-                <span className="font-mono tabular-nums text-stone-500 shrink-0">
-                  {formatCents(item.shareCents)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </>
+    <div className="mt-2 ml-[18px] border-l border-dashed border-foreground/10 pl-4 space-y-4 text-sm">
+      {groupEntries.length > 0 && (
+        <div className="space-y-3">
+          <div className="label-mono text-stone-400">Your share by receipt</div>
+          {groupEntries.map(([receipt, items]) => (
+            <div key={receipt ?? "__none__"}>
+              <div className="truncate text-xs font-semibold text-stone-600">
+                {receipt || "Receipt"}
+              </div>
+              <ul className="mt-1 space-y-1">
+                {items.map((item, i) => (
+                  <li key={i} className="flex items-baseline justify-between gap-2 text-[13px]">
+                    <span className="truncate italic text-stone-600">
+                      {item.itemName === receipt ? "Your share" : item.itemName}
+                      <span className="not-italic">
+                        {item.itemAmountCents > item.shareCents && (
+                          <span className="ml-1.5 text-[10px] uppercase text-stone-400">
+                            · split
+                          </span>
+                        )}
+                      </span>
+                    </span>
+                    <span className="font-mono tabular-nums text-stone-500 shrink-0">
+                      {formatCents(item.shareCents)}
+                      {item.itemAmountCents > item.shareCents && (
+                        <span className="ml-1 text-[11px] text-stone-400">
+                          of {formatCents(item.itemAmountCents)}
+                        </span>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
       )}
       {(breakdown.taxShareCents > 0 ||
         breakdown.tipShareCents > 0 ||
@@ -104,35 +134,49 @@ function BreakdownPanel({ breakdown }: { breakdown: ParticipantBreakdownView }) 
 }
 
 /**
- * Renders the toggle button + (when open) the itemized breakdown for a single
- * participant. Receives fully serializable data; all money math happens on the
- * server.
+ * Renders the whole balance row (via `left`/`right`) plus, when open, the
+ * itemized breakdown panel *below* the row so the amount/arrow never reflow.
+ * Receives fully serializable data; all money math happens on the server.
  */
 export function BalanceBreakdown({
   participantId,
   netCents,
   breakdown,
+  left,
+  right,
 }: {
   participantId: number;
   netCents: number;
   breakdown: ParticipantBreakdownView;
+  left: ReactNode;
+  right: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-  const isOpen = open;
-
-  if (netCents === 0) return null;
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="label-mono text-[11px] text-stone-400 transition hover:text-accent-strong hover:underline flex items-center gap-1"
-        aria-expanded={isOpen}
-      >
-        {isOpen ? "▲" : "▼"} breakdown
-      </button>
-      {isOpen && <BreakdownPanel breakdown={breakdown} />}
+      <div className="flex items-center justify-between">
+        {left}
+        <div className="flex items-center gap-2">
+          {right}
+          {netCents !== 0 && (
+            <button
+              type="button"
+              onClick={() => setOpen((v) => !v)}
+              className="label-mono text-[11px] text-stone-400 transition hover:text-accent-strong hover:underline flex items-center gap-1"
+              aria-expanded={open}
+              aria-controls={`breakdown-${participantId}`}
+            >
+              {open ? "▲" : "▼"} breakdown
+            </button>
+          )}
+        </div>
+      </div>
+      {open && (
+        <div id={`breakdown-${participantId}`} className="mt-2">
+          <BreakdownPanel breakdown={breakdown} />
+        </div>
+      )}
     </>
   );
 }

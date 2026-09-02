@@ -72,21 +72,26 @@ export function BalanceList({
 
           return (
             <li key={p.id} className="py-2.5">
-              <div className="flex items-center justify-between">
-                <span className="flex min-w-0 items-center gap-2.5">
-                  <span
-                    className={`h-2 w-2 shrink-0 rounded-full ${
-                      net > 0 ? "bg-accent" : net < 0 ? "bg-orange-500" : "bg-stone-300"
-                    }`}
-                  />
-                  <span className="truncate font-medium">{p.displayName}</span>
-                  {badge && (
-                    <span className="label-mono shrink-0 border border-dashed border-stone-300 px-1.5 py-0.5 text-[10px] text-stone-400">
-                      {badge}
-                    </span>
-                  )}
-                </span>
-                <div className="flex items-center gap-2">
+              <BalanceBreakdown
+                participantId={p.id}
+                netCents={net}
+                breakdown={breakdown as ParticipantBreakdownView}
+                left={
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <span
+                      className={`h-2 w-2 shrink-0 rounded-full ${
+                        net > 0 ? "bg-accent" : net < 0 ? "bg-orange-500" : "bg-stone-300"
+                      }`}
+                    />
+                    <span className="truncate font-medium">{p.displayName}</span>
+                    {badge && (
+                      <span className="label-mono shrink-0 border border-dashed border-stone-300 px-1.5 py-0.5 text-[10px] text-stone-400">
+                        {badge}
+                      </span>
+                    )}
+                  </span>
+                }
+                right={
                   <span
                     className={`font-mono text-sm font-semibold tabular-nums ${
                       net > 0
@@ -102,11 +107,8 @@ export function BalanceList({
                         ? `owes ${formatCents(-net)}`
                         : "settled"}
                   </span>
-                  {breakdown && (
-                    <BalanceBreakdown participantId={p.id} netCents={net} breakdown={breakdown} />
-                  )}
-                </div>
-              </div>
+                }
+              />
               {state === "guest" && viewer && viewer.id !== p.userId && (
                 <div className="mt-1 pl-[18px]">
                   {pendingByParticipant.has(p.id) ? (

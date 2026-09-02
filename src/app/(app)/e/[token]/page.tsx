@@ -67,6 +67,7 @@ export default async function EventPage({
 
   const ledgerExpenses = expenseRows.map(({ expense, items }) => ({
     payerId: expense.payerId,
+    description: expense.description ?? undefined,
     taxCents: expense.taxCents,
     tipCents: expense.tipCents,
     totalCents: expense.totalCents,
