@@ -40,7 +40,7 @@ export function BalanceList({
   people,
   nets,
   pendingClaims,
-  viewerHasClaimed,
+  viewerClaimedIds,
   viewer,
   addAction,
   breakdowns,
@@ -49,7 +49,7 @@ export function BalanceList({
   people: BalancePerson[];
   nets: Map<number, number>;
   pendingClaims: PendingClaimRow[];
-  viewerHasClaimed: boolean;
+  viewerClaimedIds: Set<number>;
   viewer: BalanceViewer | null;
   addAction: (formData: FormData) => void | Promise<void>;
   breakdowns: Map<number, ParticipantBreakdownView>;
@@ -119,7 +119,7 @@ export function BalanceList({
                         ? "the owner"
                         : "owner approval"}
                     </span>
-                  ) : viewerHasClaimed ? (
+                  ) : viewerClaimedIds.has(p.id) ? (
                     <span className="label-mono text-[11px] text-stone-300">
                       you already have a claim here
                     </span>

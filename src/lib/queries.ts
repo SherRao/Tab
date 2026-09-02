@@ -61,15 +61,17 @@ export async function getPendingClaims(eventId: number): Promise<ClaimView[]> {
     .orderBy(asc(participantClaims.id));
 }
 
-/** Whether the given user already has a pending or decided claim on a guest. */
-export async function hasClaimedParticipant(eventId: number, userId: number): Promise<boolean> {
-  const [row] = await db
-    .select({ id: participantClaims.id })
+/** Participant IDs the given user already has a pending or decided claim on. */
+export async function claimedParticipantIdsForUser(
+  eventId: number,
+  userId: number,
+): Promise<Set<number>> {
+  const rows = await db
+    .select({ participantId: participantClaims.participantId })
     .from(participantClaims)
     .innerJoin(participants, eq(participantClaims.participantId, participants.id))
-    .where(and(eq(participants.eventId, eventId), eq(participantClaims.requesterUserId, userId)))
-    .limit(1);
-  return row != null;
+    .where(and(eq(participants.eventId, eventId), eq(participantClaims.requesterUserId, userId)));
+  return new Set(rows.map((r) => r.participantId));
 }
 
 export async function getOwnedEvents(ownerId: number) {

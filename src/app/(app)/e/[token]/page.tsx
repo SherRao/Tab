@@ -2,7 +2,7 @@ import {
   getEventByToken,
   getExpenses,
   getPendingClaims,
-  hasClaimedParticipant,
+  claimedParticipantIdsForUser,
 } from "@/lib/queries";
 import {
   computeNetBalances,
@@ -62,10 +62,10 @@ export default async function EventPage({
   const isOwner = viewer != null && detail.event.ownerId === viewer.id;
 
   const { event, participants: people } = detail;
-  const [expenseRows, pendingClaims, viewerHasClaimed] = await Promise.all([
+  const [expenseRows, pendingClaims, viewerClaimedIds] = await Promise.all([
     getExpenses(event.id),
     isOwner ? getPendingClaims(event.id) : Promise.resolve([]),
-    viewer ? hasClaimedParticipant(event.id, viewer.id) : Promise.resolve(false),
+    viewer ? claimedParticipantIdsForUser(event.id, viewer.id) : Promise.resolve(new Set<number>()),
   ]);
 
   const ledgerExpenses: LedgerExpense[] = expenseRows.map(({ expense, items, shares }) => ({
@@ -181,7 +181,7 @@ export default async function EventPage({
         people={balancePeople}
         nets={nets}
         pendingClaims={claimRows}
-        viewerHasClaimed={viewerHasClaimed}
+        viewerClaimedIds={viewerClaimedIds}
         viewer={viewer ? { id: viewer.id, displayName: viewer.displayName } : null}
         addAction={addParticipantAction}
         breakdowns={breakdowns}
