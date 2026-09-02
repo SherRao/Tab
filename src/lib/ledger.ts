@@ -176,3 +176,136 @@ export function simplifyDebts(nets: Map<number, number>): Transfer[] {
   }
   return transfers;
 }
+
+export interface ParticipantBreakdown {
+  participantId: number;
+  items: {
+    expenseId: number;
+    expenseDescription: string | undefined;
+    itemName: string;
+    itemAmountCents: number;
+    shareCents: number;
+  }[];
+  taxShareCents: number;
+  tipShareCents: number;
+  otherExtrasShareCents: number;
+  totalConsumedCents: number;
+  totalPaidCents: number;
+  netCents: number;
+}
+
+export function computeParticipantBreakdown(
+  participants: LedgerParticipant[],
+  expenses: LedgerExpense[],
+  participantId: number,
+): ParticipantBreakdown {
+  const { paidCents, consumedCents } = computeConsumption(participants, expenses);
+  const paid = paidCents.get(participantId) ?? 0;
+  const consumed = consumedCents.get(participantId) ?? 0;
+
+  const items: ParticipantBreakdown["items"] = [];
+  let taxShareCents = 0;
+  let tipShareCents = 0;
+  let otherExtrasShareCents = 0;
+
+  const allIds = participants.map((p) => p.id);
+
+  for (const expense of expenses) {
+    let participantIds: number[];
+    if (expense.groupIds && expense.groupIds.length > 0) {
+      participantIds = selectedParticipantIds(allIds, expense.groupIds);
+    } else if (expense.evenParticipantIds && expense.evenParticipantIds.length > 0) {
+      participantIds = selectedParticipantIds(allIds, expense.evenParticipantIds);
+    } else {
+      participantIds = allIds;
+    }
+
+    if (!participantIds.includes(participantId)) continue;
+
+    if (expense.splitMode === "even" || expense.splitMode === "group") {
+      const ids = expense.splitMode === "group" ? participantIds : participantIds;
+      const shares = equalSplit(expense.totalCents, ids.length);
+      const idx = ids.indexOf(participantId);
+      if (idx >= 0) {
+        const share = shares[idx];
+        items.push({
+          expenseId: 0,
+          expenseDescription: expense.description,
+          itemName: "Even split",
+          itemAmountCents: expense.totalCents,
+          shareCents: share,
+        });
+        const itemsTotal = expense.lineItems.reduce((a, b) => a + b.amountCents, 0);
+        const taxTipOther = expense.totalCents - itemsTotal;
+        if (taxTipOther > 0) {
+          const taxRatio = expense.taxCents / taxTipOther;
+          const tipRatio = expense.tipCents / taxTipOther;
+          const otherRatio = 1 - taxRatio - tipRatio;
+          taxShareCents += Math.round(share * taxRatio);
+          tipShareCents += Math.round(share * tipRatio);
+          otherExtrasShareCents += Math.round(share * otherRatio);
+        }
+      }
+      continue;
+    }
+
+    const subtotal = new Map<number, number>(participantIds.map((id) => [id, 0]));
+    for (const item of expense.lineItems) {
+      const assignees = item.participantIds.filter((id) => participantIds.includes(id));
+      if (assignees.length === 0) continue;
+      const shares = equalSplit(item.amountCents, assignees.length);
+      const idx = assignees.indexOf(participantId);
+      if (idx >= 0) {
+        const share = shares[idx];
+        subtotal.set(participantId, (subtotal.get(participantId) ?? 0) + share);
+        items.push({
+          expenseId: 0,
+          expenseDescription: expense.description,
+          itemName: item.name,
+          itemAmountCents: item.amountCents,
+          shareCents: share,
+        });
+      }
+    }
+
+    const itemsTotal = expense.lineItems.reduce((a, b) => a + b.amountCents, 0);
+    const extras = [
+      { amount: expense.taxCents, type: "tax" as const },
+      { amount: expense.tipCents, type: "tip" as const },
+      {
+        amount: expense.totalCents - itemsTotal - expense.taxCents - expense.tipCents,
+        type: "other" as const,
+      },
+    ];
+
+    const mySubtotal = subtotal.get(participantId) ?? 0;
+    const totalSubtotal = participantIds.reduce((sum, id) => sum + (subtotal.get(id) ?? 0), 0);
+
+    for (const extra of extras) {
+      if (extra.amount === 0) continue;
+      let share = 0;
+      if (totalSubtotal > 0) {
+        share = Math.round((mySubtotal / totalSubtotal) * extra.amount);
+      } else if (participantIds.length > 0) {
+        share = Math.round(extra.amount / participantIds.length);
+      }
+      if (extra.type === "tax") taxShareCents += share;
+      else if (extra.type === "tip") tipShareCents += share;
+      else otherExtrasShareCents += share;
+    }
+  }
+
+  const totalConsumedCents = items.reduce((sum, i) => sum + i.shareCents, 0) + taxShareCents + tipShareCents + otherExtrasShareCents;
+  const netCents = paid - totalConsumedCents;
+
+  return {
+    participantId,
+    items,
+    taxShareCents,
+    tipShareCents,
+    otherExtrasShareCents,
+    totalConsumedCents,
+    totalPaidCents: paid,
+    netCents,
+  };
+}

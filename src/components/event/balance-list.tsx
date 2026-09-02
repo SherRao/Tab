@@ -3,6 +3,10 @@ import { formatCents } from "@/lib/format";
 import { requestClaimAction } from "@/lib/actions";
 import { AddSomeoneControl } from "@/components/people/add-someone-control";
 import { SectionHeading } from "@/components/ui/section-heading";
+import {
+  BalanceBreakdown,
+  type ParticipantBreakdownView,
+} from "@/components/event/balance-breakdown";
 
 export interface BalancePerson {
   id: number;
@@ -39,6 +43,7 @@ export function BalanceList({
   viewerHasClaimed,
   viewer,
   addAction,
+  breakdowns,
 }: {
   token: string;
   people: BalancePerson[];
@@ -47,6 +52,7 @@ export function BalanceList({
   viewerHasClaimed: boolean;
   viewer: BalanceViewer | null;
   addAction: (formData: FormData) => void | Promise<void>;
+  breakdowns: Map<number, ParticipantBreakdownView>;
 }) {
   const pendingByParticipant = new Map(pendingClaims.map((c) => [c.participantId, c]));
 
@@ -62,6 +68,8 @@ export function BalanceList({
             invitedAt: p.invitedAt,
           });
           const badge = STATE_BADGES[state];
+          const breakdown = breakdowns.get(p.id);
+
           return (
             <li key={p.id} className="py-2.5">
               <div className="flex items-center justify-between">
@@ -78,21 +86,26 @@ export function BalanceList({
                     </span>
                   )}
                 </span>
-                <span
-                  className={`font-mono text-sm font-semibold tabular-nums ${
-                    net > 0
-                      ? "text-accent-strong"
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`font-mono text-sm font-semibold tabular-nums ${
+                      net > 0
+                        ? "text-accent-strong"
+                        : net < 0
+                          ? "text-orange-600"
+                          : "text-stone-400"
+                    }`}
+                  >
+                    {net > 0
+                      ? `gets back ${formatCents(net)}`
                       : net < 0
-                        ? "text-orange-600"
-                        : "text-stone-400"
-                  }`}
-                >
-                  {net > 0
-                    ? `gets back ${formatCents(net)}`
-                    : net < 0
-                      ? `owes ${formatCents(-net)}`
-                      : "settled"}
-                </span>
+                        ? `owes ${formatCents(-net)}`
+                        : "settled"}
+                  </span>
+                  {breakdown && (
+                    <BalanceBreakdown participantId={p.id} netCents={net} breakdown={breakdown} />
+                  )}
+                </div>
               </div>
               {state === "guest" && viewer && viewer.id !== p.userId && (
                 <div className="mt-1 pl-[18px]">

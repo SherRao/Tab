@@ -4,7 +4,12 @@ import {
   getPendingClaims,
   hasClaimedParticipant,
 } from "@/lib/queries";
-import { computeNetBalances, simplifyDebts } from "@/lib/ledger";
+import {
+  computeNetBalances,
+  simplifyDebts,
+  computeParticipantBreakdown,
+  type LedgerParticipant,
+} from "@/lib/ledger";
 import { addParticipantAction } from "@/lib/actions";
 import { getSessionUser } from "@/lib/auth";
 import { notFound } from "next/navigation";
@@ -14,6 +19,7 @@ import {
   type BalancePerson,
   type PendingClaimRow,
 } from "@/components/event/balance-list";
+import type { ParticipantBreakdownView } from "@/components/event/balance-breakdown";
 import { ClaimRequests } from "@/components/event/claim-requests";
 import { SettleUpList } from "@/components/event/settle-up-list";
 import { ReceiptList, type ReceiptCardData } from "@/components/event/receipt-list";
@@ -118,6 +124,25 @@ export default async function EventPage({
     })),
   }));
 
+  const ledgerParticipants: LedgerParticipant[] = people.map((p) => ({
+    id: p.id,
+    name: p.userDisplayName ?? p.name,
+  }));
+
+  const breakdowns = new Map<number, ParticipantBreakdownView>();
+  for (const p of people) {
+    const b = computeParticipantBreakdown(ledgerParticipants, ledgerExpenses, p.id);
+    breakdowns.set(p.id, {
+      items: b.items.map((i) => ({ ...i })),
+      taxShareCents: b.taxShareCents,
+      tipShareCents: b.tipShareCents,
+      otherExtrasShareCents: b.otherExtrasShareCents,
+      totalConsumedCents: b.totalConsumedCents,
+      totalPaidCents: b.totalPaidCents,
+      netCents: b.netCents,
+    });
+  }
+
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-6 pt-8 pb-20">
       <EventHeader
@@ -141,6 +166,7 @@ export default async function EventPage({
         viewerHasClaimed={viewerHasClaimed}
         viewer={viewer ? { id: viewer.id, displayName: viewer.displayName } : null}
         addAction={addParticipantAction}
+        breakdowns={breakdowns}
       />
 
       <ClaimRequests token={token} claims={claimRows} guestNameOf={guestNameOf} />
