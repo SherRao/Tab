@@ -79,6 +79,7 @@ describe("deleteEventAction", () => {
       totalCents: 3000,
       splitMode: "itemized",
       groupIds: [],
+      evenParticipantIds: [],
       items: [{ name: "Tacos", amountCents: 3000, participantIds: [alice.id] }],
     });
 

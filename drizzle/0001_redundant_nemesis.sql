@@ -1,0 +1,1 @@
+ALTER TABLE `expenses` ADD `even_participant_ids` text;

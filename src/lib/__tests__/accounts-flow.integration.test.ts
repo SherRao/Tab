@@ -134,6 +134,7 @@ describe("accounts and participants flow", () => {
       totalCents: 3000,
       splitMode: "even",
       groupIds: participants.map((p) => p.id),
+      evenParticipantIds: [],
       items: [],
     });
 

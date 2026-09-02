@@ -43,7 +43,7 @@ export default async function EditExpensePage({
             tip: toFixedMoney(expense.tipCents),
             total: toFixedMoney(expense.totalCents),
             splitMode: expense.splitMode,
-            evenParticipantIds: [],
+            evenParticipantIds: expense.evenParticipantIds ?? [],
             groupIds: expense.groupIds ?? [],
           }}
         />

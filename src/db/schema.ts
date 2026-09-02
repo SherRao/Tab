@@ -167,6 +167,7 @@ export const expenses = sqliteTable(
     totalCents: integer("total_cents").notNull().default(0),
     splitMode: text("split_mode", { enum: SPLIT_MODES }).notNull().default("itemized"),
     groupIds: text("group_ids", { mode: "json" }).$type<number[] | null>(),
+    evenParticipantIds: text("even_participant_ids", { mode: "json" }).$type<number[] | null>(),
     createdAt: integer("created_at", { mode: "timestamp" })
       .notNull()
       .$defaultFn(() => new Date()),

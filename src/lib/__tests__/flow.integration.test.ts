@@ -100,6 +100,7 @@ describe("full event flow", () => {
       totalCents: 4056,
       splitMode: "itemized",
       groupIds: [],
+      evenParticipantIds: [],
       items: [
         { name: "Tacos", amountCents: 2400, participantIds: [A, B] },
         { name: "Guac", amountCents: 800, participantIds: [A, C] },
@@ -113,6 +114,7 @@ describe("full event flow", () => {
       totalCents: 9000,
       splitMode: "even",
       groupIds: [A, B, C],
+      evenParticipantIds: [],
       items: [],
     });
 
@@ -138,6 +140,7 @@ describe("full event flow", () => {
       totalCents: 3000,
       splitMode: "group",
       groupIds: [],
+      evenParticipantIds: [],
       items: [{ name: "Cake", amountCents: 3000, participantIds: [] }],
     });
 
@@ -182,6 +185,7 @@ describe("full event flow", () => {
         totalCents: 1000,
         splitMode: "even",
         groupIds: detail!.participants.map((p) => p.id),
+        evenParticipantIds: [],
         items: [],
       }),
     ).rejects.toThrow("Payer is not a participant");
