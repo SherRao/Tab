@@ -7,6 +7,9 @@ export async function GET(request: Request): Promise<Response> {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
   const q = new URL(request.url).searchParams.get("q") ?? "";
-  const accounts = q.trim().length >= 2 ? await searchAccounts(q) : [];
+  const accounts =
+    q.trim().length >= 2
+      ? (await searchAccounts(q)).filter((account) => account.id !== user.id)
+      : [];
   return Response.json({ accounts });
 }
