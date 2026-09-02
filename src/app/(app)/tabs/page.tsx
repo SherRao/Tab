@@ -31,6 +31,7 @@ export default async function TabsPage() {
             </Link>
           </div>
         ) : (
+          <>
           <ul className="divide-y divide-dashed divide-foreground/10">
             {events.map((event) => (
               <li key={event.id}>
@@ -54,6 +55,13 @@ export default async function TabsPage() {
               </li>
             ))}
           </ul>
+          <Link
+            href="/create"
+            className="label-mono mt-4 inline-block text-accent-strong hover:underline"
+          >
+            Start a new tab →
+          </Link>
+          </>
         )}
       </section>
     </main>
