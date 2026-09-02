@@ -39,5 +39,5 @@
 ## 8. Docs + full verification
 
 - [x] 8.1 Update AGENTS.md architecture section paths (`expense-editor`, component layout); verify doc references match tree
-- [ ] 8.2 Run `npm test`, `npm run lint`, `npm run build` — all green with no test edits beyond import paths
+- [x] 8.2 Run `npm test`, `npm run lint`, `npm run build` — all green with no test edits beyond import paths
 - [x] 8.3 Dev-server visual pass over `/`, `/signin`, `/signup`, `/create`, `/tabs`, one seeded event page (balances, claims, settle-up, receipts); verify zero visual differences

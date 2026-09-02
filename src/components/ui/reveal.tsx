@@ -1,12 +1,12 @@
 "use client";
 
 import {
-  createElement,
   useEffect,
   useRef,
   useState,
   type CSSProperties,
   type ReactNode,
+  type Ref,
 } from "react";
 
 type RevealProps = {
@@ -56,5 +56,13 @@ export function Reveal({
     .filter(Boolean)
     .join(" ");
 
-  return createElement(as, { ref, style, className: classes }, children);
+  return as === "li" ? (
+    <li ref={ref as Ref<HTMLLIElement>} style={style} className={classes}>
+      {children}
+    </li>
+  ) : (
+    <div ref={ref as Ref<HTMLDivElement>} style={style} className={classes}>
+      {children}
+    </div>
+  );
 }
