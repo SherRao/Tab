@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import type { ReceiptDraft } from "@/lib/receipt-parse";
-import type { EditorItem } from "@/components/expense-editor";
-import ExpenseEditor, { type EditorParticipant } from "@/components/expense-editor";
-import ScanReceipt, { type ScanOutcome } from "@/components/scan-receipt";
+import { toFixedMoney } from "@/lib/format";
+import type { EditorItem } from "./expense-editor";
+import ExpenseEditor, { type EditorParticipant } from "./expense-editor";
+import ScanReceipt, { type ScanOutcome } from "./scan-receipt";
 
 type Stage = "choose" | "editor";
 
@@ -51,7 +52,7 @@ export default function NewExpenseFlow({
   ) {
     const scannedItems: EditorItem[] = draft.items.map((i) => ({
       name: i.name,
-      amount: (i.amountCents / 100).toFixed(2),
+      amount: toFixedMoney(i.amountCents),
       participantIds: [],
     }));
     setInitial({
@@ -59,9 +60,9 @@ export default function NewExpenseFlow({
       payerId: undefined,
       items:
         scannedItems.length > 0 ? scannedItems : [{ name: "", amount: "", participantIds: [] }],
-      tax: draft.taxCents ? (draft.taxCents / 100).toFixed(2) : "",
-      tip: draft.tipCents ? (draft.tipCents / 100).toFixed(2) : "",
-      total: draft.totalCents ? (draft.totalCents / 100).toFixed(2) : "",
+      tax: draft.taxCents ? toFixedMoney(draft.taxCents) : "",
+      tip: draft.tipCents ? toFixedMoney(draft.tipCents) : "",
+      total: draft.totalCents ? toFixedMoney(draft.totalCents) : "",
       splitMode: "itemized",
       evenParticipantIds: [],
       groupIds: [],

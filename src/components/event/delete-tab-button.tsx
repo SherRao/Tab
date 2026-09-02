@@ -2,7 +2,7 @@
 
 import { deleteEventAction } from "@/lib/actions";
 
-export default function DeleteEventButton({
+export default function DeleteTabButton({
   token,
   eventName,
 }: {
