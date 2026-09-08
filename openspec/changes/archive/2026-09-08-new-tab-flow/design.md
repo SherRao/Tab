@@ -57,3 +57,20 @@ Initial schema migration not required (no data model changes). Deploy the `/crea
 ## Open Questions
 
 None blocking — remaining choices (exact UI library, styling approach) are implementation-level and deferred to tasks.
+
+## Outcome (as built)
+
+The flow shipped with four deviations from the decisions above. They are recorded
+here rather than edited into D1–D4 so the original reasoning stays readable.
+
+- **Two steps, not three (D2).** The confirmation step was dropped. Step 2 shows a
+  live "You + N others = N+1 people" summary and a `tab open ✓` stamp while the
+  action is pending, which covers the same reassurance without an extra tap.
+- **Route is `src/app/(app)/create/page.tsx` (D1).** It sits in the `(app)` route
+  group so it inherits the shared site header.
+- **The page requires a signed-in viewer.** The "no accounts or authentication"
+  non-goal was overtaken by the accounts change; unauthenticated visitors are sent
+  to `/signin?next=%2Fcreate`.
+- **People are added through `CreateEventPeopleInput`, not a comma-separated
+  field (D2).** That control already handles account search, guests, and
+  invite-by-email, so the 10-participant usability cap was never needed.

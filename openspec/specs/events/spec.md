@@ -8,7 +8,7 @@ Lets a person create an event (trip, night out) with named participants and shar
 
 ### Requirement: Event creation
 
-The system SHALL allow a user to create an event with a name and an initial list of participant names, without requiring any account or login.
+The system SHALL allow a signed-in user to create an event with a name and an initial list of people. Participants themselves do not need accounts — they can be added as guests. See the `event-creation` capability for the creation flow.
 
 #### Scenario: Create event with participants
 
