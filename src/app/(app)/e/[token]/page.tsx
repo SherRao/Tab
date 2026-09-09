@@ -1,7 +1,7 @@
 import {
   getEventByToken,
   getExpenses,
-  getGroupMemberLookup,
+  getGroupsForEvent,
   getPendingClaims,
   claimedParticipantIdsForUser,
 } from "@/lib/queries";
@@ -26,6 +26,7 @@ import type { ParticipantBreakdownView } from "@/components/event/balance-breakd
 import { ClaimRequests } from "@/components/event/claim-requests";
 import { SettleUpList } from "@/components/event/settle-up-list";
 import { ReceiptList, type ReceiptCardData } from "@/components/event/receipt-list";
+import { GroupManager } from "@/components/event/group-manager";
 import { UnassignedWarnings } from "@/components/event/unassigned-warnings";
 import { ErrorNote } from "@/components/ui/error-note";
 import { SectionHeading } from "@/components/ui/section-heading";
@@ -63,12 +64,14 @@ export default async function EventPage({
   const isOwner = viewer != null && detail.event.ownerId === viewer.id;
 
   const { event, participants: people } = detail;
-  const [expenseRows, pendingClaims, viewerClaimedIds, groupMemberLookup] = await Promise.all([
+  const [expenseRows, pendingClaims, viewerClaimedIds, eventGroups] = await Promise.all([
     getExpenses(event.id),
     isOwner ? getPendingClaims(event.id) : Promise.resolve([]),
     viewer ? claimedParticipantIdsForUser(event.id, viewer.id) : Promise.resolve(new Set<number>()),
-    getGroupMemberLookup(event.id),
+    getGroupsForEvent(event.id),
   ]);
+  const groupMembersById = new Map(eventGroups.map((g) => [g.id, g.memberIds]));
+  const groupMemberLookup = (groupId: number) => groupMembersById.get(groupId) ?? [];
 
   const ledgerExpenses: LedgerExpense[] = expenseRows.map(({ expense, items, shares }) => ({
     payerId: expense.payerId,
@@ -201,6 +204,20 @@ export default async function EventPage({
       <SettleUpList transfers={transfers} nameOf={nameOf} />
 
       <ReceiptList token={token} receipts={receipts} nameOf={nameOf} />
+
+      <section className="mt-12">
+        <SectionHeading>Groups</SectionHeading>
+        <p className="mt-2 mb-4 font-mono text-[11px] leading-relaxed text-stone-400">
+          Reusable sets of people you can split a receipt by. Editing members re-scopes past
+          receipts that use the group.
+        </p>
+        <GroupManager
+          token={token}
+          eventName={event.name}
+          participants={people.map((p) => ({ id: p.id, name: p.userDisplayName ?? p.name }))}
+          groups={eventGroups}
+        />
+      </section>
 
       {isOwner && (
         <section className="mt-12">

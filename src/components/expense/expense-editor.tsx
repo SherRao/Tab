@@ -2,7 +2,13 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { saveExpenseAction, updateExpenseAction } from "@/lib/actions";
+import {
+  createGroupAction,
+  deleteGroupAction,
+  saveExpenseAction,
+  updateGroupAction,
+  updateExpenseAction,
+} from "@/lib/actions";
 import { toCents, toFixedMoney } from "@/lib/format";
 import { ChipToggleGroup } from "@/components/ui/chip-toggle-group";
 import { Field } from "@/components/ui/field";
@@ -10,6 +16,8 @@ import { MoneyInput } from "@/components/ui/money-input";
 import { LineItemRow, type EditorItem } from "./line-item-row";
 import { SplitModeSelector, type SplitMode } from "./split-mode-selector";
 import { TotalSharesPanel, type ShareConfig } from "./total-shares-panel";
+import { GroupPillRow, type EditorGroup } from "./group-pill-row";
+import { GroupCreateModal } from "./group-create-modal";
 
 export interface EditorParticipant {
   id: number;
@@ -18,9 +26,13 @@ export interface EditorParticipant {
 
 export type { EditorItem };
 
+export type { EditorGroup };
+
 export interface ExpenseEditorProps {
   token: string;
   participants: EditorParticipant[];
+  groups?: EditorGroup[];
+  eventName?: string;
   expenseId?: number;
   initial?: {
     description: string;
@@ -31,6 +43,8 @@ export interface ExpenseEditorProps {
     total: string;
     splitMode: "itemized" | "even";
     selectedParticipantIds: number[];
+    /** Groups selected for an "As a total" split; each splits equally by live members. */
+    selectedGroupIds?: number[];
     /** Stored whole-expense weights; omit to default everyone to an equal share. */
     shares?: ShareConfig[];
   };
@@ -43,6 +57,8 @@ function emptyItem(): EditorItem {
 export default function ExpenseEditor({
   token,
   participants,
+  groups: initialGroups = [],
+  eventName = "",
   expenseId,
   initial,
 }: ExpenseEditorProps) {
@@ -71,6 +87,33 @@ export default function ExpenseEditor({
     }));
   });
   const [saving, setSaving] = useState(false);
+
+  // Live copy of the event's groups so create/edit reflects immediately; the
+  // server action's revalidate keeps the event page in sync.
+  const [groups, setGroups] = useState<EditorGroup[]>(initialGroups);
+  const [selectedGroupIds, setSelectedGroupIds] = useState<number[]>(
+    initial?.selectedGroupIds ?? [],
+  );
+  const [groupModal, setGroupModal] = useState<{ mode: "create" } | { mode: "edit"; id: number } | null>(
+    null,
+  );
+  const [groupError, setGroupError] = useState<string | null>(null);
+
+  // Members reachable through a selected group; explicit picks for these people
+  // are redundant, so a group split forces an equal share for everyone in it.
+  const groupMemberIds = useMemo(() => {
+    const set = new Set<number>();
+    for (const g of groups) {
+      if (selectedGroupIds.includes(g.id)) g.memberIds.forEach((id) => set.add(id));
+    }
+    return set;
+  }, [groups, selectedGroupIds]);
+  const usingGroups = selectedGroupIds.length > 0;
+  const resolvedHeadIds = useMemo(() => {
+    const set = new Set<number>(groupMemberIds);
+    selectedParticipantIds.forEach((id) => set.add(id));
+    return [...set];
+  }, [groupMemberIds, selectedParticipantIds]);
 
   const computed = useMemo(() => {
     let itemsSum = 0;
@@ -126,6 +169,26 @@ export default function ExpenseEditor({
    */
   function buildShares(payloadItems: PayloadItem[]) {
     if (splitMode === "even") {
+      if (usingGroups) {
+        // Group split: equal share for each selected group (live members) plus
+        // any individuals picked outside those groups. No double-counting a
+        // person who is both picked and in a selected group.
+        const groupShares = selectedGroupIds.map((groupId) => ({
+          groupId,
+          lineItemId: null as number | null,
+          weightType: "equal" as const,
+          weightValue: 10000,
+        }));
+        const explicitShares = selectedParticipantIds
+          .filter((id) => !groupMemberIds.has(id))
+          .map((participantId) => ({
+            participantId,
+            lineItemId: null as number | null,
+            weightType: "equal" as const,
+            weightValue: 10000,
+          }));
+        return [...groupShares, ...explicitShares];
+      }
       return shares.map((s) => ({
         participantId: s.participantId,
         lineItemId: null as number | null,
@@ -202,8 +265,58 @@ export default function ExpenseEditor({
     }
   }
 
+  async function handleGroupSave(name: string, memberIds: number[]) {
+    setGroupError(null);
+    try {
+      if (groupModal?.mode === "edit") {
+        const id = groupModal.id;
+        await updateGroupAction(token, id, name, memberIds);
+        setGroups((prev) => prev.map((g) => (g.id === id ? { ...g, name, memberIds } : g)));
+      } else {
+        const id = await createGroupAction(token, name, memberIds);
+        setGroups((prev) => [...prev, { id, name, memberIds }]);
+        setSelectedGroupIds((prev) => [...prev, id]);
+      }
+      setGroupModal(null);
+      router.refresh();
+    } catch (e) {
+      setGroupError(e instanceof Error ? e.message : "Could not save the group");
+    }
+  }
+
+  async function handleGroupDelete(id: number) {
+    setGroupError(null);
+    try {
+      await deleteGroupAction(token, id);
+      setGroups((prev) => prev.filter((g) => g.id !== id));
+      setSelectedGroupIds((prev) => prev.filter((gid) => gid !== id));
+      setGroupModal(null);
+      router.refresh();
+    } catch (e) {
+      setGroupError(e instanceof Error ? e.message : "Could not delete the group");
+    }
+  }
+
+  const editingGroup =
+    groupModal?.mode === "edit" ? groups.find((g) => g.id === groupModal.id) : undefined;
+
   return (
     <div className="receipt-card receipt-edge">
+      {groupModal && (
+        <GroupCreateModal
+          eventName={eventName}
+          participants={participants}
+          initialName={editingGroup?.name}
+          initialMemberIds={editingGroup?.memberIds}
+          error={groupError}
+          onSave={handleGroupSave}
+          onDelete={groupModal.mode === "edit" ? () => handleGroupDelete(groupModal.id) : undefined}
+          onCancel={() => {
+            setGroupError(null);
+            setGroupModal(null);
+          }}
+        />
+      )}
       <div className="receipt-lined space-y-7 p-6 pb-8 sm:p-8 sm:pb-9">
         <Field label="Description">
           <input
@@ -293,14 +406,41 @@ export default function ExpenseEditor({
                 }
               />
             </div>
-            <div className="mt-4">
-              <TotalSharesPanel
-                participants={participants}
-                shares={shares}
-                totalCents={toCents(total) || 0}
-                onChange={setShares}
-              />
-            </div>
+
+            <GroupPillRow
+              groups={groups}
+              selectedGroupIds={selectedGroupIds}
+              onToggle={(gid) =>
+                setSelectedGroupIds((prev) =>
+                  prev.includes(gid) ? prev.filter((x) => x !== gid) : [...prev, gid],
+                )
+              }
+              onEdit={(gid) => {
+                setGroupError(null);
+                setGroupModal({ mode: "edit", id: gid });
+              }}
+              onNew={() => {
+                setGroupError(null);
+                setGroupModal({ mode: "create" });
+              }}
+            />
+
+            {usingGroups ? (
+              <p className="mt-4 border-l-4 border-l-accent/40 bg-accent/5 px-4 py-3 font-mono text-[11px] leading-relaxed text-stone-500">
+                Splitting equally between {resolvedHeadIds.length}{" "}
+                {resolvedHeadIds.length === 1 ? "person" : "people"}. Groups always split evenly —
+                clear the group pills to set custom shares.
+              </p>
+            ) : (
+              <div className="mt-4">
+                <TotalSharesPanel
+                  participants={participants}
+                  shares={shares}
+                  totalCents={toCents(total) || 0}
+                  onChange={setShares}
+                />
+              </div>
+            )}
           </section>
         )}
 

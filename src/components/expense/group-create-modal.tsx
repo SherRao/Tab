@@ -7,7 +7,9 @@ interface GroupCreateModalProps {
   participants: { id: number; name: string }[];
   initialName?: string;
   initialMemberIds?: number[];
+  error?: string | null;
   onSave: (name: string, memberIds: number[]) => void;
+  onDelete?: () => void;
   onCancel: () => void;
 }
 
@@ -16,7 +18,9 @@ export function GroupCreateModal({
   participants,
   initialName = "",
   initialMemberIds = [],
+  error,
   onSave,
+  onDelete,
   onCancel,
 }: GroupCreateModalProps) {
   const [name, setName] = useState(initialName);
@@ -75,6 +79,12 @@ export function GroupCreateModal({
           </ul>
         </div>
 
+        {error && (
+          <p className="mt-4 border-l-4 border-l-red-400 bg-red-50 px-3 py-2 font-mono text-[11px] text-red-700">
+            {error}
+          </p>
+        )}
+
         <div className="mt-6 flex gap-3">
           <button
             type="button"
@@ -88,6 +98,16 @@ export function GroupCreateModal({
             Cancel
           </button>
         </div>
+
+        {onDelete && (
+          <button
+            type="button"
+            onClick={onDelete}
+            className="mt-3 w-full py-1.5 font-mono text-[11px] tracking-wide text-red-400 uppercase transition hover:text-red-600"
+          >
+            Delete group
+          </button>
+        )}
       </div>
     </div>
   );

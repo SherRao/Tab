@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { ReceiptDraft } from "@/lib/receipt-parse";
 import { toFixedMoney } from "@/lib/format";
 import type { EditorItem } from "./expense-editor";
-import ExpenseEditor, { type EditorParticipant } from "./expense-editor";
+import ExpenseEditor, { type EditorParticipant, type EditorGroup } from "./expense-editor";
 import ScanReceipt, { type ScanOutcome } from "./scan-receipt";
 
 type Stage = "choose" | "editor";
@@ -12,6 +12,8 @@ type Stage = "choose" | "editor";
 export interface NewExpenseFlowProps {
   token: string;
   participants: EditorParticipant[];
+  groups?: EditorGroup[];
+  eventName?: string;
   editorInitial?: {
     description: string;
     payerId: number | undefined;
@@ -27,6 +29,8 @@ export interface NewExpenseFlowProps {
 export default function NewExpenseFlow({
   token,
   participants,
+  groups = [],
+  eventName = "",
   editorInitial,
 }: NewExpenseFlowProps) {
   const [initial, setInitial] = useState<Parameters<typeof ExpenseEditor>[0]["initial"]>(
@@ -108,7 +112,13 @@ export default function NewExpenseFlow({
           </button>
         </div>
       )}
-      <ExpenseEditor token={token} participants={participants} initial={initial} />
+      <ExpenseEditor
+        token={token}
+        participants={participants}
+        groups={groups}
+        eventName={eventName}
+        initial={initial}
+      />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { formatCents } from "@/lib/format";
 
 export interface BreakdownItemView {
   expenseDescription: string | undefined;
+  splitLabel: string;
   itemName: string;
   itemAmountCents: number;
   shareCents: number;
@@ -37,8 +38,13 @@ function BreakdownPanel({ breakdown }: { breakdown: ParticipantBreakdownView }) 
           <div className="label-mono text-stone-400">Your share by receipt</div>
           {groupEntries.map(([receipt, items]) => (
             <div key={receipt ?? "__none__"}>
-              <div className="truncate text-xs font-semibold text-stone-600">
-                {receipt || "Receipt"}
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="truncate text-xs font-semibold text-stone-600">
+                  {receipt || "Receipt"}
+                </span>
+                <span className="shrink-0 font-mono text-[10px] tracking-wide text-stone-400 uppercase">
+                  {items[0]?.splitLabel}
+                </span>
               </div>
               <ul className="mt-1 space-y-1">
                 {items.map((item, i) => (

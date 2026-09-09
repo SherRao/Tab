@@ -30,6 +30,7 @@
 - [x] 2.9 Breakdown uses the shared helper; parity tests at `ledger.test.ts:420`
 - [x] 2.10 `getGroupMemberLookup` (`queries.ts`) now feeds both `computeNetBalances` and `computeParticipantBreakdown` on the event page, so `groupId` shares resolve to live membership. Integration-tested in `groups-flow.integration.test.ts`
 - [ ] 2.11 **NEW —** Only the *inner* duplication was removed in 2.8. `computeParticipantBreakdown:359-536` still re-implements the even/itemized branching, the no-shares fallback, and tax/tip allocation using a different algorithm (`Math.round(ratio * extra)` at `:459`, `:383`) than `computeConsumption` (`allocateByWeights` at `:234`). The two paths can disagree by a cent — extract the extras allocation too
+- [x] 2.12 **NEW —** `resolveShares` treated equal weights as additive, so a participant in two overlapping selected groups (or picked explicitly *and* via a group) was double-charged. Equal weight is now presence-based (a `Set`), matching the spec's "group members union". Covered by the overlap test in `groups-flow.integration.test.ts`
 
 ## 3. Actions & Queries
 
@@ -45,11 +46,11 @@
 
 - [x] 4.1 "By items" / "As a total" tiles — shipped as `SplitModeSelector` (`split-mode-selector.tsx:10`), not the `WhatModeSelector` name in the original task
 - [x] 4.2 Participant pills — shipped as an inline `ChipToggleGroup` section in `expense-editor.tsx:252`, not as a separate `split-between.tsx`
-- [ ] 4.3 **NOT DONE (was wrongly ticked)** — there is no group-pill row and no "New Group" pill anywhere in the editor. `expense-editor.tsx` contains no group state at all
-- [ ] 4.4 **NOT DONE (was wrongly ticked)** — `GroupPill` does not exist; no tap-to-union, no long-press-to-edit, no member count
-- [ ] 4.5 **PARTIAL (was wrongly ticked)** — `group-create-modal.tsx` exists but is **imported nowhere**; it is dead code. Wire it up or delete it
-- [x] 4.6 Group data layer landed: `getGroupsForEvent` / `getGroupMemberLookup` (`queries.ts`) and `createGroupAction` / `updateGroupAction` (`actions.ts`), gated by session + share token, validating name, non-empty membership, and event ownership of the group. **Deferred:** `deleteGroupAction` — `expenseShares.groupId` is `set null` on delete, so deletion silently strips a group's shares from balances; it needs an in-use guard, which I'll build alongside the UI so the state is visible
-- [ ] 4.7 **NEW —** Selecting a group must write `expense_shares` rows with `groupId` set and `participantId` NULL, per `specs/expense/groups/spec.md`; `buildShares()` currently only ever emits `participantId`. The action + query layer already accepts and resolves `groupId` shares (4.6) — this is the editor half
+- [x] 4.3 `GroupPillRow` (`group-pill-row.tsx`) renders the group pills + "New group" pill in the editor's Split-between row; the editor holds `selectedGroupIds` state
+- [x] 4.4 Each pill shows `Name (count)`; tap toggles the group into the split (union at compute time). **Deviation:** edit is a visible ✎ affordance on the pill, not long-press — long-press isn't accessible on desktop/keyboard
+- [x] 4.5 `GroupCreateModal` is now wired from both the editor and the event page; extended with an error line and an optional Delete affordance
+- [x] 4.6 Group data layer landed: `getGroupsForEvent` / `getGroupMemberLookup` (`queries.ts`) and `createGroupAction` / `updateGroupAction` (`actions.ts`), gated by session + share token, validating name, non-empty membership, and event ownership of the group. `deleteGroupAction` now lands too, with an in-use guard: it refuses to delete a group any receipt still splits by (`expenseShares.groupId` is `set null` on delete, which would otherwise silently drop those shares)
+- [x] 4.7 `buildShares` emits an equal `groupId` share per selected group, plus explicit `participantId` shares only for people outside every selected group (no double-count). Per the product decision, selecting a group forces an equal split; custom %/$ is available only when no group is selected
 
 ## 5. Editor UI: Progressive Weights
 
@@ -63,8 +64,8 @@
 
 ## 6. Event Page: Group Management
 
-- [ ] 6.1 **NOT DONE (was wrongly ticked)** — the event page has no group pills and no group editing. `src/app/(app)/e/[token]/page.tsx` mentions groups only when mapping `s.groupId` through to the ledger (`:86`, `:139`)
-- [ ] 6.2 **NOT DONE (was wrongly ticked)** — nothing can create a group in either surface, so there is nothing to keep in sync
+- [x] 6.1 A Groups section on the event page (`GroupManager`) lists groups with members, opens the shared modal to rename / change members / delete, and has a "New group" pill
+- [x] 6.2 Groups created in the editor appear on the event page and vice versa: both call the same actions, whose `revalidatePath` plus a `router.refresh()` resync the other surface
 - [x] 6.3 The `ledgerExpenses` mapper passes `shares` (including `groupId`) to both `computeNetBalances` and `computeParticipantBreakdown` (`page.tsx:70-90`, `:121-148`)
 - [x] 6.4 The event page builds `getGroupMemberLookup(event.id)` from `participantGroup` and passes it to both ledger calls, so 6.3's `groupId` plumbing now resolves
 
@@ -72,7 +73,7 @@
 
 - [x] 7.1 `getModeLabel` in `receipt-list.tsx:34` returns "By items" / "As a total · Equal" / "As a total · Custom"; rendered at `:95`
 - [x] 7.2 `MODE_LABELS` removed — zero references remain in `src/`
-- [ ] 7.3 Update the per-person breakdown surfaces. `balance-breakdown.tsx` still uses the old vocabulary only ("Your share by receipt" `:37`, "· split" `:51`, "Tax & tip share" `:74`) and `BreakdownItemView` (`:6-11`) carries no share/weight data, so custom Equal/%/$ shares are invisible. `balance-list.tsx` has no split vocabulary at all
+- [x] 7.3 (mostly) Each receipt group in the breakdown now shows a `splitLabel` — "By items" / "As a total · Equal|Custom" — derived in `computeParticipantBreakdown` and surfaced in `balance-breakdown.tsx`. **Still open:** per-person, per-share Equal/%/$ badges (needs each participant's weight type threaded through the breakdown item). `balance-list.tsx` left as-is: its rows are net positions, not per-split, so split vocabulary doesn't belong there
 
 ## 8. Scan Flow Integration
 
@@ -84,7 +85,7 @@
 ## 9. Edit Expense Page
 
 - [x] 9.1a `selectedParticipantIds` reconstructed from total-level shares (`edit/page.tsx:21-24`)
-- [ ] 9.1b **NOT DONE (was wrongly ticked)** — group selections are never reconstructed: `s.groupId` is dropped (`edit/page.tsx:22`) and `ExpenseEditorProps` (`expense-editor.tsx:25-34`) has no `selectedGroupIds`
+- [x] 9.1b Group selections are reconstructed on edit via `hydrateSelectedGroupIds`, fed to the editor's new `initial.selectedGroupIds`. Round-trip covered in `groups-flow.integration.test.ts`
 - [x] 9.1c Weight types and values are now hydrated for whole-expense splits via `hydrateTotalShares` (see 13.2). Itemized per-unit weights remain lossy — see 9.1d
 - [ ] 9.1d **NEW —** line-item assignees are hydrated from the legacy `line_item_shares` table (`edit/page.tsx:43`, `queries.ts:141`) rather than from `expense_shares`, and per-unit quantities are not persisted at all, so editing an itemized expense silently flattens it to an equal item split. Reconcile once 5.3/5.4 land
 
@@ -112,7 +113,7 @@
 
 - [x] 12.1 No stale split-mode comments remain in `src/lib`, `src/components`, or `src/app`
 - [x] 12.2 The "birthday mode" split-mode label is gone. The remaining "birthday"/"birthdays" strings (`create-tab-form.tsx:67`, `marketing/how-it-works.tsx:5`) are event-type examples in marketing copy, unrelated to the split mode — intentionally kept
-- [ ] 12.3 Manual QA: create event, add expenses in both modes, verify settle-up. Blocked — will fail today on 13.1 and 13.2
+- [ ] 12.3 Manual QA: create event, add expenses in both modes, create/use/edit a group, verify settle-up. 13.1/13.2 are fixed; the group UI compiles, type-checks, and has integration coverage but has **not been visually QA'd in a browser**
 - [x] 12.4 The stale "will be set by the action" comment is gone — `buildShares` was rewritten as part of 13.1
 
 ## 13. Defects found during the audit

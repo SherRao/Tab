@@ -87,6 +87,7 @@ function resolveShares(
   // Aggregate weights per participant
   const participantWeights = new Map<number, number>();
   const participantAmounts = new Map<number, number>();
+  const equalIds = new Set<number>();
 
   for (const share of shares) {
     let pids: number[] = [];
@@ -101,10 +102,19 @@ function resolveShares(
     for (const pid of pids) {
       if (share.weightType === "amount") {
         participantAmounts.set(pid, (participantAmounts.get(pid) ?? 0) + share.weightValue);
+      } else if (share.weightType === "percent") {
+        participantWeights.set(pid, (participantWeights.get(pid) ?? 0) + share.weightValue / 10000);
       } else {
-        const w = share.weightType === "percent" ? share.weightValue / 10000 : 1;
-        participantWeights.set(pid, (participantWeights.get(pid) ?? 0) + w);
+        // Equal weight is presence, not additive: a participant reached via
+        // several equal shares — overlapping groups, or a group plus an
+        // explicit pick — still counts once. Spec: group members union.
+        equalIds.add(pid);
       }
+    }
+  }
+  for (const pid of equalIds) {
+    if (!participantAmounts.has(pid)) {
+      participantWeights.set(pid, (participantWeights.get(pid) ?? 0) + 1);
     }
   }
 
@@ -327,6 +337,8 @@ export interface ParticipantBreakdown {
   items: {
     expenseId: number;
     expenseDescription: string | undefined;
+    /** How this receipt was split, for display: "By items" / "As a total · Equal|Custom". */
+    splitLabel: string;
     itemName: string;
     itemAmountCents: number;
     shareCents: number;
@@ -366,10 +378,12 @@ export function computeParticipantBreakdown(
         if (totalShares.length > 0) {
           const resolved = resolveShares(totalShares, expense.totalCents, allIds, groupMemberLookup);
           const myShare = resolved.find((r) => r.participantId === participantId);
+          const custom = totalShares.some((s) => s.weightType !== "equal");
           if (myShare && myShare.consumedCents > 0) {
             items.push({
               expenseId: 0,
               expenseDescription: expense.description,
+              splitLabel: `As a total · ${custom ? "Custom" : "Equal"}`,
               itemName: expense.description || "Split",
               itemAmountCents: expense.totalCents,
               shareCents: myShare.consumedCents,
@@ -394,6 +408,7 @@ export function computeParticipantBreakdown(
             items.push({
               expenseId: 0,
               expenseDescription: expense.description,
+              splitLabel: "As a total · Equal",
               itemName: expense.description || "Split",
               itemAmountCents: expense.totalCents,
               shareCents: share,
@@ -434,6 +449,7 @@ export function computeParticipantBreakdown(
             items.push({
               expenseId: 0,
               expenseDescription: expense.description,
+              splitLabel: "By items",
               itemName: lineItem?.name ?? "Item",
               itemAmountCents: amount,
               shareCents: myShare.consumedCents,
@@ -475,6 +491,7 @@ export function computeParticipantBreakdown(
           items.push({
             expenseId: 0,
             expenseDescription: expense.description,
+            splitLabel: "As a total · Equal",
             itemName: expense.description || "Split",
             itemAmountCents: expense.totalCents,
             shareCents: share,
@@ -503,6 +520,7 @@ export function computeParticipantBreakdown(
             items.push({
               expenseId: 0,
               expenseDescription: expense.description,
+              splitLabel: "By items",
               itemName: item.name,
               itemAmountCents: item.amountCents,
               shareCents: share,

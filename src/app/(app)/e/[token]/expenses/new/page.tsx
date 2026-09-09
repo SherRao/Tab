@@ -1,4 +1,4 @@
-import { getEventByToken } from "@/lib/queries";
+import { getEventByToken, getGroupsForEvent } from "@/lib/queries";
 import { notFound } from "next/navigation";
 import NewExpenseFlow from "@/components/expense/new-expense-flow";
 import type { EditorParticipant } from "@/components/expense/expense-editor";
@@ -13,6 +13,7 @@ export default async function NewExpensePage({ params }: { params: Promise<{ tok
     id: p.id,
     name: p.name,
   }));
+  const groups = await getGroupsForEvent(detail.event.id);
 
   return (
     <main className="mx-auto w-full max-w-xl flex-1 px-6 pt-8 pb-16">
@@ -27,6 +28,8 @@ export default async function NewExpensePage({ params }: { params: Promise<{ tok
         <NewExpenseFlow
           token={token}
           participants={editorParticipants}
+          groups={groups}
+          eventName={detail.event.name}
           editorInitial={{
             description: "",
             payerId: undefined,

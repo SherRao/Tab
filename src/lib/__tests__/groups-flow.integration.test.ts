@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import os from "node:os";
+import { hydrateSelectedGroupIds, hydrateTotalShares } from "@/lib/expense-hydrate";
 import path from "node:path";
 
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
@@ -186,5 +187,94 @@ describe("group actions + live resolution", () => {
         [otherDetail!.participants[0].id],
       ),
     ).rejects.toThrow("Group not found");
+  });
+
+  it("deletes an unused group but blocks deleting one a receipt splits by", async () => {
+    const { event } = await queries.createEventRecord("Delete", ["Alice", "Bob"], ownerId);
+    const detail = await queries.getEventByToken(event.shareToken);
+    const [A, B] = detail!.participants.map((p) => p.id);
+
+    const unused = await actions.createGroupAction(event.shareToken, "Unused", [A, B]);
+    await actions.deleteGroupAction(event.shareToken, unused);
+    expect(await queries.getGroupsForEvent(event.id)).toEqual([]);
+
+    const used = await actions.createGroupAction(event.shareToken, "Used", [A, B]);
+    await actions.saveExpenseAction(event.shareToken, {
+      payerId: A,
+      description: "Split by group",
+      taxCents: 0,
+      tipCents: 0,
+      totalCents: 2000,
+      splitMode: "even",
+      items: [],
+      shares: [{ groupId: used, weightType: "equal", weightValue: 10000 }],
+    });
+    await expect(actions.deleteGroupAction(event.shareToken, used)).rejects.toThrow(
+      "used by a receipt",
+    );
+    // Still there.
+    expect((await queries.getGroupsForEvent(event.id)).map((g) => g.id)).toEqual([used]);
+  });
+
+  it("counts a member in two overlapping selected groups only once", async () => {
+    const { event } = await queries.createEventRecord("Overlap", ["Alice", "Bob", "Cara"], ownerId);
+    const detail = await queries.getEventByToken(event.shareToken);
+    const [A, B, C] = detail!.participants.map((p) => p.id);
+    // Bob is in both groups.
+    const g1 = await actions.createGroupAction(event.shareToken, "Left", [A, B]);
+    const g2 = await actions.createGroupAction(event.shareToken, "Right", [B, C]);
+
+    await actions.saveExpenseAction(event.shareToken, {
+      payerId: A,
+      description: "Shared",
+      taxCents: 0,
+      tipCents: 0,
+      totalCents: 3000,
+      splitMode: "even",
+      items: [],
+      shares: [
+        { groupId: g1, weightType: "equal", weightValue: 10000 },
+        { groupId: g2, weightType: "equal", weightValue: 10000 },
+      ],
+    });
+
+    const nets = await netsFor(event.id, event.shareToken);
+    // Union is {A, B, C} -> equal thirds, Bob not double-charged.
+    expect(nets.get(A)).toBe(2000); // paid 3000, consumed 1000
+    expect(nets.get(B)).toBe(-1000);
+    expect(nets.get(C)).toBe(-1000);
+  });
+
+  it("saves a group plus an explicit outsider the way the editor emits it", async () => {
+    const { event } = await queries.createEventRecord("Mixed", ["Alice", "Bob", "Cara"], ownerId);
+    const detail = await queries.getEventByToken(event.shareToken);
+    const [A, B, C] = detail!.participants.map((p) => p.id);
+    const groupId = await actions.createGroupAction(event.shareToken, "Pair", [A, B]);
+
+    // Editor selection: group Pair (A,B) + explicit Cara. buildShares emits the
+    // group share plus an explicit share only for the member outside the group.
+    await actions.saveExpenseAction(event.shareToken, {
+      payerId: A,
+      description: "Split three ways",
+      taxCents: 0,
+      tipCents: 0,
+      totalCents: 3000,
+      splitMode: "even",
+      items: [],
+      shares: [
+        { groupId, weightType: "equal", weightValue: 10000 },
+        { participantId: C, weightType: "equal", weightValue: 10000 },
+      ],
+    });
+
+    const rows = await queries.getExpenses(event.id);
+    // Edit-page hydration recovers the group + explicit selection.
+    expect(hydrateSelectedGroupIds(rows[0].shares)).toEqual([groupId]);
+    expect(hydrateTotalShares(rows[0].shares).map((s) => s.participantId)).toEqual([C]);
+
+    const nets = await netsFor(event.id, event.shareToken);
+    expect(nets.get(A)).toBe(2000); // paid 3000, consumed 1000
+    expect(nets.get(B)).toBe(-1000);
+    expect(nets.get(C)).toBe(-1000);
   });
 });

@@ -1,9 +1,9 @@
-import { getEventByToken, getExpenses } from "@/lib/queries";
+import { getEventByToken, getExpenses, getGroupsForEvent } from "@/lib/queries";
 import { toFixedMoney } from "@/lib/format";
 import { notFound } from "next/navigation";
 import ExpenseEditor from "@/components/expense/expense-editor";
 import Link from "next/link";
-import { hydrateTotalShares } from "@/lib/expense-hydrate";
+import { hydrateTotalShares, hydrateSelectedGroupIds } from "@/lib/expense-hydrate";
 
 export default async function EditExpensePage({
   params,
@@ -17,10 +17,12 @@ export default async function EditExpensePage({
   const row = rows.find((r) => r.expense.id === Number(id));
   if (!row) notFound();
   const { expense, items, shares } = row;
+  const groups = await getGroupsForEvent(detail.event.id);
 
-  // Reconstruct the editor's whole-expense split, weights included.
+  // Reconstruct the editor's whole-expense split, weights and groups included.
   const editorShares = hydrateTotalShares(shares);
   const selectedParticipantIds = editorShares.map((s) => s.participantId);
+  const selectedGroupIds = hydrateSelectedGroupIds(shares);
 
   return (
     <main className="mx-auto w-full max-w-xl flex-1 px-6 pt-8 pb-16">
@@ -35,6 +37,8 @@ export default async function EditExpensePage({
         <ExpenseEditor
           token={token}
           participants={detail.participants}
+          groups={groups}
+          eventName={detail.event.name}
           expenseId={expense.id}
           initial={{
             description: expense.description ?? "",
@@ -51,6 +55,7 @@ export default async function EditExpensePage({
             total: toFixedMoney(expense.totalCents),
             splitMode: expense.splitMode as "itemized" | "even",
             selectedParticipantIds,
+            selectedGroupIds,
             shares: editorShares,
           }}
         />

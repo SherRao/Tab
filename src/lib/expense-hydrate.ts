@@ -22,3 +22,14 @@ export function hydrateTotalShares(shares: ExpenseWithItems["shares"]): EditorSh
       weightValue: s.weightValue,
     }));
 }
+
+/** Group ids selected on a whole-expense (`even`) split, for editor hydration. */
+export function hydrateSelectedGroupIds(shares: ExpenseWithItems["shares"]): number[] {
+  return [
+    ...new Set(
+      shares
+        .filter((s) => s.lineItemId == null && s.groupId != null)
+        .map((s) => s.groupId as number),
+    ),
+  ];
+}

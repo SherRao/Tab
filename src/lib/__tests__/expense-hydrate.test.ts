@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hydrateTotalShares } from "@/lib/expense-hydrate";
+import { hydrateTotalShares, hydrateSelectedGroupIds } from "@/lib/expense-hydrate";
 
 type Row = Parameters<typeof hydrateTotalShares>[0][number];
 
@@ -48,5 +48,25 @@ describe("hydrateTotalShares", () => {
 
   it("returns an empty list when there are no shares", () => {
     expect(hydrateTotalShares([])).toEqual([]);
+  });
+});
+
+describe("hydrateSelectedGroupIds", () => {
+  it("returns the distinct group ids on total-level shares", () => {
+    const out = hydrateSelectedGroupIds([
+      row({ groupId: 7, weightType: "equal", weightValue: 10000 }),
+      row({ groupId: 9, weightType: "equal", weightValue: 10000 }),
+      row({ groupId: 7, weightType: "equal", weightValue: 10000 }),
+    ]);
+    expect(out.sort()).toEqual([7, 9]);
+  });
+
+  it("ignores participant rows and line-item group rows", () => {
+    const out = hydrateSelectedGroupIds([
+      row({ participantId: 1, weightType: "equal", weightValue: 10000 }),
+      row({ groupId: 4, lineItemId: 22, weightType: "equal", weightValue: 10000 }),
+      row({ groupId: 5, weightType: "equal", weightValue: 10000 }),
+    ]);
+    expect(out).toEqual([5]);
   });
 });

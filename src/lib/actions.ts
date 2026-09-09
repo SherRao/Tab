@@ -490,3 +490,27 @@ export async function updateGroupAction(
 
   revalidatePath(`/e/${token}`);
 }
+
+export async function deleteGroupAction(token: string, groupId: number): Promise<void> {
+  await requireSession();
+  const detail = await getEventByToken(token);
+  if (!detail) throw new Error("Event not found");
+
+  const [group] = await db.select().from(groups).where(eq(groups.id, groupId));
+  if (!group || group.eventId !== detail.event.id) throw new Error("Group not found");
+
+  // `expenseShares.groupId` is set-null on delete, so removing a group that a
+  // receipt still splits by would silently drop that receipt's shares from the
+  // balances. Block it and make the user reassign first.
+  const [inUse] = await db
+    .select({ id: expenseShares.id })
+    .from(expenseShares)
+    .where(eq(expenseShares.groupId, groupId))
+    .limit(1);
+  if (inUse) {
+    throw new Error("This group is used by a receipt — reassign it before deleting");
+  }
+
+  await db.delete(groups).where(eq(groups.id, groupId));
+  revalidatePath(`/e/${token}`);
+}
