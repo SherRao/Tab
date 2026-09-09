@@ -1,122 +1,125 @@
+> **Audited 2026-09-08.** Many boxes below were ticked without the work being
+> done, or were done under a different name. Every item has been re-verified
+> against the code and re-marked. Where the shipped name differs from the task
+> text, the task now names what actually exists. Two money-affecting defects
+> found during the audit are tracked in section 13.
+>
+> The `participant-groups` change was archived as superseded on the same date;
+> the groups work it described now lives in sections 4 and 6 here.
+
 ## 1. Schema & Migration
 
-- [x] 1.1 Add `expense_shares` table to `src/db/schema.ts` with indexes and relations; verify `npm run db:generate` produces migration
-- [x] 1.2 Ensure `groups` and `participantGroup` tables exist (from participant-groups change); if missing, add them
-- [x] 1.3 Write migration script `src/scripts/migrate-shares.ts` that:
-  - Reads all expenses with their line items and shares
-  - For `group` expenses: resolved set = all event participants
-  - For `even` expenses: resolved set = `evenParticipantIds ?? groupIds` (post-`0001` field, falling back to legacy `group_ids`), else all participants
-  - For `even`/`group`: inserts `expense_shares` rows with `lineItemId=NULL`, `weightType='equal'`, `weightValue=10000` for each resolved participant
-  - For `itemized` expenses: inserts `expense_shares` per line item from `line_item_shares`
-  - Run and verify row counts match expectations
-- [x] 1.4 Apply migration to `data/app.db` via `npm run db:migrate`; verify no data loss
-- [x] 1.5 Remove `group` from `SPLIT_MODES` enum in `schema.ts` and update `expenses` table `splitMode` column default to `itemized`
-- [x] 1.6 After migration verified, drop the `even_participant_ids` and `group_ids` columns from `expenses` (both introduced since `0001_redundant_nemesis`); update `schemas.ts` `expenses` definition accordingly
+- [x] 1.1 Add `expense_shares` table to `src/db/schema.ts:205` with indexes and relations (`:300`); migration `drizzle/0002_living_shinobi_shaw.sql`
+- [x] 1.2 `groups` (`schema.ts:56`) and `participantGroup` (`schema.ts:92`) exist, both in `drizzle/0000_abnormal_ronan.sql`
+- [x] 1.3 Write `src/scripts/migrate-shares.ts` handling `even_participant_ids` (`:85`), legacy `group_ids` (`:93`), all-participants fallback (`:101`), `group` mode (`:78`), and itemized from `line_item_shares` (`:108`)
+- [x] 1.4 Applied to `data/app.db` (148 share rows across 10 expenses; backup at `data/app.db.bak.20260904_123326`)
+- [x] 1.5 `SPLIT_MODES = ["itemized", "even"]` (`schema.ts:151`); `splitMode` defaults to `itemized` (`:168`)
+- [x] 1.6 `even_participant_ids` and `group_ids` dropped in `drizzle/0003_tricky_satana.sql`; absent from schema and the live DB
+- [ ] 1.7 **NEW —** `migrate-shares.ts` is now inoperable: 1.6 dropped the very columns it reads at `:29-31`, so every `even` expense silently falls through to the all-participants branch. It is also not idempotent (SQLite treats NULLs as distinct in `expense_shares_unique_idx`, so a re-run duplicates every total-level row). Either delete the script now that `data/app.db` is migrated, or gate it on the columns still existing and make it idempotent
 
-## 2. Ledger Math (computeConsumption / computeParticipantBreakdown)
+## 2. Ledger Math
 
-- [x] 2.1 Refactor `computeConsumption` in `src/lib/ledger.ts` to read from `expense_shares` instead of `evenParticipantIds`/`groupId`
-- [x] 2.2 Implement participant resolution: union of explicit `participantId` rows + live `groupId` member lookup via `participantGroup`
-- [x] 2.3 Implement weight computation per scope (total vs line item):
-  - `equal` → weight = 1
-  - `percent` → weight = `weightValue / 10000`
-  - `amount` → exact cents allocation
-- [x] 2.4 Handle mixed weight types in same scope: exact amounts first, remainder distributed proportionally
-- [x] 2.5 Preserve tax/tip proportional allocation using pre-tax subtotals from shares
-- [x] 2.6 Add fallback: if expense has no shares, use old logic (for any edge cases)
-- [x] 2.7 Run `npm test` — all 38 existing ledger/integration tests must pass
-- [x] 2.8 Extract the shared participant-resolution + weight-application helper from 2.2-2.4 so `computeConsumption` and `computeParticipantBreakdown` use one code path (breakdown currently duplicates ledger.ts:69-137 incl. the `even ? participantIds : participantIds` no-op)
-- [x] 2.9 Update `computeParticipantBreakdown` (ledger.ts:197) to the shared helper from 2.8; add parity test that its totals reconcile with `computeConsumption` for weighted shares
+- [x] 2.1 `computeConsumption` (`ledger.ts:158`) reads `expense.shares` (`:174`); no `evenParticipantIds`/`groupId` fields remain
+- [x] 2.2 Participant resolution — union of explicit `participantId` rows and live `groupId` lookup (`ledger.ts:91-109`)
+- [x] 2.3 Weight computation per scope: `equal` → 1, `percent` → `/10000`, `amount` → exact cents (`ledger.ts:102-107`)
+- [x] 2.4 Mixed weight types: exact amounts first, remainder proportional (`ledger.ts:120-139`)
+- [x] 2.5 Tax/tip proportional allocation from share-derived pre-tax subtotals (`ledger.ts:206-244`, itemized only — `even` splits the whole total, which is correct but differs from the task text)
+- [x] 2.6 No-shares fallback (`ledger.ts:246`, mirrored at `:468`)
+- [x] 2.7 `npm test` passes (57 tests, up from 38)
+- [x] 2.8 `resolveShares` (`ledger.ts:81`) is genuinely shared by `computeConsumption` (`:181`, `:215`) and `computeParticipantBreakdown` (`:367`, `:430`)
+- [x] 2.9 Breakdown uses the shared helper; parity tests at `ledger.test.ts:420`
+- [ ] 2.10 **NEW —** `groupMemberLookup` is dead in production. It defaults to `() => []` (`ledger.ts:161, 290, 346`) and the only real caller passes nothing (`src/app/(app)/e/[token]/page.tsx:93` and `:153`), so any `groupId` share resolves to zero members. Only tests exercise the live path. Blocked on section 4 giving groups a way to exist
+- [ ] 2.11 **NEW —** Only the *inner* duplication was removed in 2.8. `computeParticipantBreakdown:359-536` still re-implements the even/itemized branching, the no-shares fallback, and tax/tip allocation using a different algorithm (`Math.round(ratio * extra)` at `:459`, `:383`) than `computeConsumption` (`allocateByWeights` at `:234`). The two paths can disagree by a cent — extract the extras allocation too
 
 ## 3. Actions & Queries
 
-- [x] 3.1 Update `ExpensePayload` in `src/lib/actions.ts`:
-  - Remove `evenParticipantIds`, `groupIds`
-  - Add `shares: { participantId?: number; groupId?: number; lineItemId?: number | null; weightType: 'equal' | 'percent' | 'amount'; weightValue: number }[]`
-- [x] 3.2 Update `saveExpenseAction` to insert `expense_shares` rows from payload
-- [x] 3.3 Update `updateExpenseAction` to replace `expense_shares` on edit
-- [x] 3.4 Add validation in actions: percent sums to 10000, amount sums to totalCents
-- [x] 3.5 Update `getExpenses` in `src/lib/queries.ts` to fetch `expense_shares` alongside expenses
-- [x] 3.6 Run `npm test` — all integration tests pass
+- [x] 3.1 `ExpensePayload` carries `shares[]` (`actions.ts:142-157`)
+- [x] 3.2 `saveExpenseAction` inserts `expense_shares` (`actions.ts:196`)
+- [x] 3.3 `updateExpenseAction` replaces them (`actions.ts:274`)
+- [x] 3.4 Percent-sums-to-10000 / amount-sums-to-total validation exists (`actions.ts:167-180`, duplicated at `:246-259`)
+- [x] 3.5 `getExpenses` fetches shares (`queries.ts:126`), returned on `ExpenseWithItems.shares`
+- [x] 3.6 Integration tests pass
+- [ ] 3.7 **NEW —** Close two holes in 3.4's validation: it filters to `s.lineItemId == null` (`:169`, `:248`) so **line-item-level percent/amount shares are never validated**, and it checks percent and amount independently, so a mixed set demands the percents alone reach 10000 — contradicting the mixed-weight semantics `resolveShares` implements (`ledger.ts:120-139`). De-duplicate the two copies while fixing
 
-## 4. Editor UI: Core Components
+## 4. Editor UI: Split between + groups
 
-- [x] 4.1 Replace `SplitModeSelector` with `WhatModeSelector` (By items / As a total tiles) in `src/components/expense/split-mode-selector.tsx`
-- [x] 4.2 Create `SplitBetween` component (`src/components/expense/split-between.tsx`):
-  - Participant pills (reuse `ChipToggleGroup` style)
-  - Group pills row with "New Group" primary pill
-  - State: `selectedParticipantIds`, `selectedGroupIds`
-- [x] 4.3 Create `GroupPill` component with tap → union selection, long-press → edit
-- [x] 4.4 Create `GroupCreateModal` (`src/components/expense/group-create-modal.tsx`): name + people picker
-- [x] 4.5 Wire `SplitBetween` into `ExpenseEditor`; remove old "Assign to group(s)" checkbox section
+- [x] 4.1 "By items" / "As a total" tiles — shipped as `SplitModeSelector` (`split-mode-selector.tsx:10`), not the `WhatModeSelector` name in the original task
+- [x] 4.2 Participant pills — shipped as an inline `ChipToggleGroup` section in `expense-editor.tsx:252`, not as a separate `split-between.tsx`
+- [ ] 4.3 **NOT DONE (was wrongly ticked)** — there is no group-pill row and no "New Group" pill anywhere in the editor. `expense-editor.tsx` contains no group state at all
+- [ ] 4.4 **NOT DONE (was wrongly ticked)** — `GroupPill` does not exist; no tap-to-union, no long-press-to-edit, no member count
+- [ ] 4.5 **PARTIAL (was wrongly ticked)** — `group-create-modal.tsx` exists but is **imported nowhere**; it is dead code. Wire it up or delete it
+- [ ] 4.6 **NEW —** There are **no group queries or server actions at all** (`grep -n "group" src/lib/queries.ts src/lib/actions.ts` returns nothing). Nothing in the app can create a group, read its members, or edit membership. This is the foundation the rest of section 4 and all of 2.10 depend on — do it first
+- [ ] 4.7 **NEW —** Selecting a group must write `expense_shares` rows with `groupId` set and `participantId` NULL, per `specs/expense/groups/spec.md`; `buildShares()` (`expense-editor.tsx:109`) currently only ever emits `participantId`
 
 ## 5. Editor UI: Progressive Weights
 
-- [x] 5.1 Create `TotalSharesPanel` (`src/components/expense/total-shares-panel.tsx`):
-  - Shows when `whatMode === 'even'`
-  - One row per resolved participant: name, current share display, [Adjust] button
-  - Live total validation bar
-- [x] 5.2 Create `ShareEditor` modal (`src/components/expense/share-editor.tsx`):
-  - Toggle: Equal / Percent / Amount
-  - Percent: slider + input with live % remaining
-  - Amount: dollar input with live $ remaining
-  - Validation: prevent save if invalid
-- [ ] 5.3 Add "Adjust shares" button to `LineItemRow` (when `whatMode === 'itemized'`)
-- [ ] 5.4 Reuse `ShareEditor` for line-item shares (pass `lineItemId` context)
-- [x] 5.6 Ensure default state: all participants selected, all shares equal
+- [x] 5.1 `TotalSharesPanel` (`total-shares-panel.tsx:23`), wired at `expense-editor.tsx:276`, shown when `splitMode === "even"`
+- [x] 5.2 Share editor modal — shipped as an internal `ShareEditorModal` inside `total-shares-panel.tsx:94`, not as `share-editor.tsx`. Equal/Percent/Amount toggle (`:147`), live remaining (`:163`, `:184`), save gated on validity (`:199`)
+- [ ] 5.3 Add "Adjust shares" to `LineItemRow` — still absent; `line-item-row.tsx` has only assignee chips (`:75`) and the integer quantity splitter (`:91`), and `EditorItem` (`:6-12`) carries no share state
+- [ ] 5.4 Make the share editor reusable per line item — currently impossible: `ShareEditorModal` is not exported, and `ShareConfig` (`total-shares-panel.tsx:10`) has no `lineItemId` field
+- [x] 5.6 Default state: all participants selected, all shares equal (`expense-editor.tsx:57-71`), re-synced on toggle (`:261`)
+- [ ] 5.7 **NEW —** `TotalSharesPanel` has no live aggregate validation bar (5.1 called for one). Over/under is only surfaced inside the modal (`:119-125`), so the panel can show an invalid set with no warning
+- [ ] 5.8 **NEW (optional) —** percent entry is a plain number input; the original task specified a slider alongside it
 
 ## 6. Event Page: Group Management
 
-- [x] 6.1 Add inline group edit affordance to event page (`src/app/(app)/e/[token]/page.tsx`):
-  - Group pills in a manageable list
-  - Tap to edit members (reuse `GroupCreateModal`)
-- [x] 6.2 Ensure groups created in editor appear on event page and vice versa
-- [x] 6.3 Update the `ledgerExpenses` mapper in `src/app/(app)/e/[token]/page.tsx` to map `shares` (replacing the `groupIds` payload) and feed `computeParticipantBreakdown` the same share data
+- [ ] 6.1 **NOT DONE (was wrongly ticked)** — the event page has no group pills and no group editing. `src/app/(app)/e/[token]/page.tsx` mentions groups only when mapping `s.groupId` through to the ledger (`:86`, `:139`)
+- [ ] 6.2 **NOT DONE (was wrongly ticked)** — nothing can create a group in either surface, so there is nothing to keep in sync
+- [x] 6.3 The `ledgerExpenses` mapper passes `shares` (including `groupId`) to both `computeNetBalances` and `computeParticipantBreakdown` (`page.tsx:70-90`, `:121-148`)
+- [ ] 6.4 **NEW —** Pass a real `groupMemberLookup` into `computeNetBalances` (`page.tsx:93`) and `computeParticipantBreakdown` (`:153`), built from `participantGroup`. Without this, 6.3's `groupId` plumbing terminates in a no-op — see 2.10
 
 ## 7. Receipt List & Display
 
-- [x] 7.1 Update `ReceiptCard` in `src/components/event/receipt-list.tsx`:
-  - Replace `MODE_LABELS` with new logic: show "By items" / "As a total" + share summary
-  - For As a total: show "Equal" or "Custom" based on share types
-- [x] 7.2 Update `MODE_LABELS` constant removal; use new display logic
-- [ ] 7.3 Update the per-person balance breakdown surfaces (`src/components/event/balance-breakdown.tsx` and `balance-list.tsx`) for the new vocabulary: "By items" / "As a total" and custom share types (Equal % / $), consuming the same share data as the ledger
+- [x] 7.1 `getModeLabel` in `receipt-list.tsx:34` returns "By items" / "As a total · Equal" / "As a total · Custom"; rendered at `:95`
+- [x] 7.2 `MODE_LABELS` removed — zero references remain in `src/`
+- [ ] 7.3 Update the per-person breakdown surfaces. `balance-breakdown.tsx` still uses the old vocabulary only ("Your share by receipt" `:37`, "· split" `:51`, "Tax & tip share" `:74`) and `BreakdownItemView` (`:6-11`) carries no share/weight data, so custom Equal/%/$ shares are invisible. `balance-list.tsx` has no split vocabulary at all
 
 ## 8. Scan Flow Integration
 
-- [x] 8.1 Update `NewExpenseFlow` (`src/components/expense/new-expense-flow.tsx`):
-  - Default to `whatMode: 'itemized'` after scan
-  - Pre-select all participants in `SplitBetween`
-  - Line items from scan have equal shares by default
-- [x] 8.2 Verify scan → edit flow works with new UI
+- [x] 8.1a Default to `itemized` after scan (`new-expense-flow.tsx:38`, `:64`)
+- [x] 8.1b Pre-select all participants (`new-expense-flow.tsx:39`, `:65`), consumed by the editor's chip section
+- [ ] 8.1c **NOT DONE (was wrongly ticked)** — scanned line items are created with `participantIds: []` (`new-expense-flow.tsx:53`), so every scanned item is unassigned and trips the "no assignees yet" warning (`expense-editor.tsx:303`). They should default to all participants, equally
+- [x] 8.2 Scan → edit shape covered by `receipt-editor-flow.test.ts:10`. Note it builds its own `toEditorInitial` rather than exercising `NewExpenseFlow.applyDraft`, and asserts nothing about shares
 
 ## 9. Edit Expense Page
 
-- [x] 9.1 Update `src/app/(app)/e/[token]/expenses/[id]/edit/page.tsx`:
-  - Load `expense_shares` and hydrate editor state
-  - Reconstruct `selectedParticipantIds`/`selectedGroupIds` from shares
-  - For group shares: select group pill; for explicit: select participant pill
+- [x] 9.1a `selectedParticipantIds` reconstructed from total-level shares (`edit/page.tsx:21-24`)
+- [ ] 9.1b **NOT DONE (was wrongly ticked)** — group selections are never reconstructed: `s.groupId` is dropped (`edit/page.tsx:22`) and `ExpenseEditorProps` (`expense-editor.tsx:25-34`) has no `selectedGroupIds`
+- [ ] 9.1c **NOT DONE (was wrongly ticked)** — weight types and values are not hydrated. See defect 13.2
+- [ ] 9.1d **NEW —** line-item assignees are hydrated from the legacy `line_item_shares` table (`edit/page.tsx:43`, `queries.ts:141`) rather than from `expense_shares`; reconcile once 5.3/5.4 land
 
 ## 10. TypeScript Types & Cleanup
 
-- [x] 10.1 Update `EditorItem`, `ExpenseEditorProps` in `expense-editor.tsx` to use new types
-- [x] 10.2 Remove `evenParticipantIds`, `groupIds` from all component props and state (schema columns removed separately in 1.6)
-- [x] 10.3 Update `LedgerExpense` type in `ledger.ts` to include `shares` instead of old fields
-- [x] 10.4 Remove `group` from `SplitMode` type; keep only `'itemized' | 'even'`
-- [x] 10.5 Remove `even_participant_ids` / `group_ids` from the drizzle schema `expenses` relations and any queries/selects referencing them
+- [x] 10.1 `EditorItem` / `ExpenseEditorProps` updated (`line-item-row.tsx:6`, `expense-editor.tsx:21`)
+- [x] 10.2 `evenParticipantIds` / `groupIds` gone from all components, app, and lib — only `migrate-shares.ts` still reads them, deliberately
+- [x] 10.3 `LedgerExpense` carries `shares` (`ledger.ts:15-31`)
+- [x] 10.4 `group` removed from `SplitMode` (`ledger.ts:13`, `schema.ts:151`)
+- [x] 10.5 Old columns gone from the drizzle schema and all queries/selects
 
 ## 11. Tests & Verification
 
-- [x] 11.1 Add ledger tests for new weight types: percent, amount, mixed
-- [x] 11.2 Add ledger tests for live group resolution (add/remove member → recompute)
-- [x] 11.3 Add integration tests: create expense with custom shares, verify balances
-- [x] 11.4 Add integration tests: group membership change updates past balances
-- [x] 11.5 Run full test suite: `npm test` — all tests pass
-- [x] 11.6 Run lint and typecheck: `npm run lint` — no errors
-- [ ] 11.7 Add migration test: legacy `even` expense with participants stored in `group_ids` (pre-`0001`) migrates to equal `expense_shares`, and post-`0001` `even_participant_ids`-based expense migrates identically
-- [x] 11.8 Add parity test: weighted-shares totals from `computeParticipantBreakdown` equal `computeConsumption`
+- [x] 11.1 Percent (`ledger.test.ts:179`), amount (`:202`), mixed (`:280`)
+- [x] 11.2 Live group resolution (`ledger.test.ts:341`)
+- [x] 11.3 Integration: custom percent shares round-trip through `saveExpenseAction` (`flow.integration.test.ts:209`) plus percent validation (`:236`). Only percent is covered — no integration coverage for `amount` or mixed
+- [ ] 11.4 **PARTIAL (was wrongly ticked)** — the only coverage is the ledger *unit* test at `ledger.test.ts:371`, which injects a hand-built `Map`. No test touches the `participantGroup` table. A real integration test here would have caught 2.10/6.4
+- [x] 11.5 `npm test` — 57 passing
+- [x] 11.6 `npm run lint` — 0 errors (one pre-existing unrelated warning in `commitlint.config.mjs`)
+- [ ] 11.7 Migration test for legacy `even` expenses — nothing imports or exercises `migrate-shares.ts`; its legacy `group_ids` branch (`:93-100`) has never been executed. See 1.7: decide the script's fate first
+- [x] 11.8 Parity tests (`ledger.test.ts:420`). Note they compare `totalConsumedCents`, which the breakdown copies straight from `computeConsumption` (`ledger.ts:348`), so the assertion is partly tautological and does not cross-check the duplicated tax/tip math in 2.11
+- [ ] 11.9 **NEW —** Add regression tests for both defects in section 13 before fixing them
 
 ## 12. Documentation & Polish
 
-- [x] 12.1 Update any inline code comments referencing old split modes
-- [x] 12.2 Verify marketing copy ("birthday") removed from components if any remain
-- [ ] 12.3 Manual QA: create event, add expenses in both modes, verify settle-up
+- [x] 12.1 No stale split-mode comments remain in `src/lib`, `src/components`, or `src/app`
+- [x] 12.2 The "birthday mode" split-mode label is gone. The remaining "birthday"/"birthdays" strings (`create-tab-form.tsx:67`, `marketing/how-it-works.tsx:5`) are event-type examples in marketing copy, unrelated to the split mode — intentionally kept
+- [ ] 12.3 Manual QA: create event, add expenses in both modes, verify settle-up. Blocked — will fail today on 13.1 and 13.2
+- [ ] 12.4 **NEW —** Remove the stale comment at `expense-editor.tsx:136` claiming the action backfills `lineItemId`; it does not (see 13.1)
+
+## 13. Defects found during the audit
+
+- [ ] 13.1 **Itemized quantity splits silently zero out the whole expense.** `buildShares()` emits itemized per-item weights with `lineItemId: null` and a comment saying the action will set it (`expense-editor.tsx:130-136`), but neither `saveExpenseAction` (`actions.ts:196-224`) nor `updateExpenseAction` (`:274-313`) ever backfills it — both insert shares *before* the line items exist. The ledger's itemized branch then filters on `lineItemId != null` (`ledger.ts:192`), finds nothing, and drops all line-item consumption; only tax/tip get an equal-split fallback.
+  - Reproduced: one $30 item, Alice 2 units / Bob 1, no tax. Quantities blank → Alice +$15.00 / Bob −$15.00 (correct). Quantities entered → **Alice +$30.00 / Bob $0.00** — Bob owes nothing.
+  - Only triggers when the quantity splitter is used; with quantities blank, `buildShares()` returns `[]` and the no-shares fallback produces the right answer, which is why the suite is green.
+  - Fix: insert line items first, then map each share to its new `lineItemId`.
+- [ ] 13.2 **Editing an expense silently resets custom shares to equal.** The edit page passes no weight data (`edit/page.tsx:40-55`) and the editor rebuilds every share as `equal`/10000 (`expense-editor.tsx:60-71`). Because `updateExpenseAction` deletes and re-inserts all rows (`actions.ts:274-286`), opening an expense with custom percent/amount shares and saving any unrelated field — even just the description — destroys the split.
+  - Fix: hydrate `weightType`/`weightValue` (and `groupId`, per 9.1b) from `expense_shares` into editor state.
