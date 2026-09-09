@@ -150,10 +150,34 @@ export interface ExpensePayload {
   shares: {
     participantId?: number;
     groupId?: number;
+    /** Index into `items`, for weights scoped to a single line item. */
+    itemIndex?: number;
     lineItemId?: number | null;
     weightType: "equal" | "percent" | "amount";
     weightValue: number;
   }[];
+}
+
+/**
+ * Insert `expense_shares`, resolving item-scoped weights to the line item ids
+ * created for this save. `itemIndex` indexes `payload.items`.
+ */
+async function insertExpenseShares(
+  expenseId: number,
+  shares: ExpensePayload["shares"],
+  lineItemIds: number[],
+) {
+  if (shares.length === 0) return;
+  await db.insert(expenseShares).values(
+    shares.map((s) => ({
+      expenseId,
+      participantId: s.participantId ?? null,
+      groupId: s.groupId ?? null,
+      lineItemId: s.itemIndex != null ? (lineItemIds[s.itemIndex] ?? null) : (s.lineItemId ?? null),
+      weightType: s.weightType,
+      weightValue: s.weightValue,
+    })),
+  );
 }
 
 export async function saveExpenseAction(token: string, payload: ExpensePayload) {
@@ -166,7 +190,9 @@ export async function saveExpenseAction(token: string, payload: ExpensePayload) 
 
   // Validate shares
   if (payload.shares.length > 0) {
-    const totalLevelShares = payload.shares.filter((s) => s.lineItemId == null);
+    const totalLevelShares = payload.shares.filter(
+      (s) => s.lineItemId == null && s.itemIndex == null,
+    );
     const percentShares = totalLevelShares.filter((s) => s.weightType === "percent");
     if (percentShares.length > 0) {
       const sum = percentShares.reduce((a, s) => a + s.weightValue, 0);
@@ -192,21 +218,8 @@ export async function saveExpenseAction(token: string, payload: ExpensePayload) 
     })
     .returning();
 
-  // Insert expense_shares
-  if (payload.shares.length > 0) {
-    await db.insert(expenseShares).values(
-      payload.shares.map((s) => ({
-        expenseId: expense.id,
-        participantId: s.participantId ?? null,
-        groupId: s.groupId ?? null,
-        lineItemId: s.lineItemId ?? null,
-        weightType: s.weightType,
-        weightValue: s.weightValue,
-      })),
-    );
-  }
-
-  // Also insert line items and line_item_shares for itemized mode
+  // Line items first: shares scoped to an item need the item's real id.
+  const lineItemIds: number[] = [];
   for (const item of payload.items) {
     const [row] = await db
       .insert(lineItems)
@@ -216,6 +229,7 @@ export async function saveExpenseAction(token: string, payload: ExpensePayload) 
         amountCents: item.amountCents,
       })
       .returning();
+    lineItemIds.push(row.id);
     const shares = [...new Set(item.participantIds)].filter((id) => validIds.has(id));
     if (shares.length) {
       await db
@@ -223,6 +237,8 @@ export async function saveExpenseAction(token: string, payload: ExpensePayload) 
         .values(shares.map((participantId) => ({ lineItemId: row.id, participantId })));
     }
   }
+
+  await insertExpenseShares(expense.id, payload.shares, lineItemIds);
 
   revalidatePath(`/e/${token}`);
 }
@@ -245,7 +261,9 @@ export async function updateExpenseAction(
 
   // Validate shares
   if (payload.shares.length > 0) {
-    const totalLevelShares = payload.shares.filter((s) => s.lineItemId == null);
+    const totalLevelShares = payload.shares.filter(
+      (s) => s.lineItemId == null && s.itemIndex == null,
+    );
     const percentShares = totalLevelShares.filter((s) => s.weightType === "percent");
     if (percentShares.length > 0) {
       const sum = percentShares.reduce((a, s) => a + s.weightValue, 0);
@@ -270,22 +288,10 @@ export async function updateExpenseAction(
     })
     .where(eq(expenses.id, expenseId));
 
-  // Replace expense_shares
   await db.delete(expenseShares).where(eq(expenseShares.expenseId, expenseId));
-  if (payload.shares.length > 0) {
-    await db.insert(expenseShares).values(
-      payload.shares.map((s) => ({
-        expenseId,
-        participantId: s.participantId ?? null,
-        groupId: s.groupId ?? null,
-        lineItemId: s.lineItemId ?? null,
-        weightType: s.weightType,
-        weightValue: s.weightValue,
-      })),
-    );
-  }
 
-  // Replace line items
+  // Replace line items before re-inserting shares, so item-scoped shares can
+  // point at the new line item ids.
   const oldItems = await db
     .select({ id: lineItems.id })
     .from(lineItems)
@@ -300,11 +306,13 @@ export async function updateExpenseAction(
     await db.delete(lineItems).where(eq(lineItems.expenseId, expenseId));
   }
 
+  const lineItemIds: number[] = [];
   for (const item of payload.items) {
     const [row] = await db
       .insert(lineItems)
       .values({ expenseId, name: item.name, amountCents: item.amountCents })
       .returning();
+    lineItemIds.push(row.id);
     const shares = [...new Set(item.participantIds)];
     if (shares.length) {
       await db
@@ -312,6 +320,8 @@ export async function updateExpenseAction(
         .values(shares.map((participantId) => ({ lineItemId: row.id, participantId })));
     }
   }
+
+  await insertExpenseShares(expenseId, payload.shares, lineItemIds);
 
   revalidatePath(`/e/${token}`);
 }

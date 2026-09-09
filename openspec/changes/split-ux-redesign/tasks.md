@@ -39,7 +39,7 @@
 - [x] 3.4 Percent-sums-to-10000 / amount-sums-to-total validation exists (`actions.ts:167-180`, duplicated at `:246-259`)
 - [x] 3.5 `getExpenses` fetches shares (`queries.ts:126`), returned on `ExpenseWithItems.shares`
 - [x] 3.6 Integration tests pass
-- [ ] 3.7 **NEW —** Close two holes in 3.4's validation: it filters to `s.lineItemId == null` (`:169`, `:248`) so **line-item-level percent/amount shares are never validated**, and it checks percent and amount independently, so a mixed set demands the percents alone reach 10000 — contradicting the mixed-weight semantics `resolveShares` implements (`ledger.ts:120-139`). De-duplicate the two copies while fixing
+- [ ] 3.7 **NEW (partly addressed) —** 13.1 corrected the *classification* so item-scoped shares are no longer mistaken for total-level ones (`actions.ts:172`, `:253`). Two holes remain: line-item-level percent/amount shares are still never validated (note that a strict per-item sum would wrongly reject legitimate rounding like 3333×3, so this needs normalization, not a bare equality check), and percent/amount are still checked independently, so a mixed set demands the percents alone reach 10000 — contradicting `resolveShares` (`ledger.ts:120-139`). De-duplicate the two copies while fixing
 
 ## 4. Editor UI: Split between + groups
 
@@ -85,8 +85,8 @@
 
 - [x] 9.1a `selectedParticipantIds` reconstructed from total-level shares (`edit/page.tsx:21-24`)
 - [ ] 9.1b **NOT DONE (was wrongly ticked)** — group selections are never reconstructed: `s.groupId` is dropped (`edit/page.tsx:22`) and `ExpenseEditorProps` (`expense-editor.tsx:25-34`) has no `selectedGroupIds`
-- [ ] 9.1c **NOT DONE (was wrongly ticked)** — weight types and values are not hydrated. See defect 13.2
-- [ ] 9.1d **NEW —** line-item assignees are hydrated from the legacy `line_item_shares` table (`edit/page.tsx:43`, `queries.ts:141`) rather than from `expense_shares`; reconcile once 5.3/5.4 land
+- [x] 9.1c Weight types and values are now hydrated for whole-expense splits via `hydrateTotalShares` (see 13.2). Itemized per-unit weights remain lossy — see 9.1d
+- [ ] 9.1d **NEW —** line-item assignees are hydrated from the legacy `line_item_shares` table (`edit/page.tsx:43`, `queries.ts:141`) rather than from `expense_shares`, and per-unit quantities are not persisted at all, so editing an itemized expense silently flattens it to an equal item split. Reconcile once 5.3/5.4 land
 
 ## 10. TypeScript Types & Cleanup
 
@@ -106,20 +106,23 @@
 - [x] 11.6 `npm run lint` — 0 errors (one pre-existing unrelated warning in `commitlint.config.mjs`)
 - [ ] 11.7 Migration test for legacy `even` expenses — nothing imports or exercises `migrate-shares.ts`; its legacy `group_ids` branch (`:93-100`) has never been executed. See 1.7: decide the script's fate first
 - [x] 11.8 Parity tests (`ledger.test.ts:420`). Note they compare `totalConsumedCents`, which the breakdown copies straight from `computeConsumption` (`ledger.ts:348`), so the assertion is partly tautological and does not cross-check the duplicated tax/tip math in 2.11
-- [ ] 11.9 **NEW —** Add regression tests for both defects in section 13 before fixing them
+- [x] 11.9 Regression tests added ahead of the fixes: `flow.integration.test.ts` (quantity weights survive, multi-item weighted saves are accepted, total-level validation still bites, custom split survives an edit, equal-share/legacy equivalence) and `expense-hydrate.test.ts`. Suite is 65 passing, up from 57
 
 ## 12. Documentation & Polish
 
 - [x] 12.1 No stale split-mode comments remain in `src/lib`, `src/components`, or `src/app`
 - [x] 12.2 The "birthday mode" split-mode label is gone. The remaining "birthday"/"birthdays" strings (`create-tab-form.tsx:67`, `marketing/how-it-works.tsx:5`) are event-type examples in marketing copy, unrelated to the split mode — intentionally kept
 - [ ] 12.3 Manual QA: create event, add expenses in both modes, verify settle-up. Blocked — will fail today on 13.1 and 13.2
-- [ ] 12.4 **NEW —** Remove the stale comment at `expense-editor.tsx:136` claiming the action backfills `lineItemId`; it does not (see 13.1)
+- [x] 12.4 The stale "will be set by the action" comment is gone — `buildShares` was rewritten as part of 13.1
 
 ## 13. Defects found during the audit
 
-- [ ] 13.1 **Itemized quantity splits silently zero out the whole expense.** `buildShares()` emits itemized per-item weights with `lineItemId: null` and a comment saying the action will set it (`expense-editor.tsx:130-136`), but neither `saveExpenseAction` (`actions.ts:196-224`) nor `updateExpenseAction` (`:274-313`) ever backfills it — both insert shares *before* the line items exist. The ledger's itemized branch then filters on `lineItemId != null` (`ledger.ts:192`), finds nothing, and drops all line-item consumption; only tax/tip get an equal-split fallback.
+- [x] 13.1 **FIXED — Itemized quantity splits silently zeroed out the whole expense.** `buildShares()` emits itemized per-item weights with `lineItemId: null` and a comment saying the action will set it (`expense-editor.tsx:130-136`), but neither `saveExpenseAction` (`actions.ts:196-224`) nor `updateExpenseAction` (`:274-313`) ever backfills it — both insert shares *before* the line items exist. The ledger's itemized branch then filters on `lineItemId != null` (`ledger.ts:192`), finds nothing, and drops all line-item consumption; only tax/tip get an equal-split fallback.
   - Reproduced: one $30 item, Alice 2 units / Bob 1, no tax. Quantities blank → Alice +$15.00 / Bob −$15.00 (correct). Quantities entered → **Alice +$30.00 / Bob $0.00** — Bob owes nothing.
   - Only triggers when the quantity splitter is used; with quantities blank, `buildShares()` returns `[]` and the no-shares fallback produces the right answer, which is why the suite is green.
-  - Fix: insert line items first, then map each share to its new `lineItemId`.
-- [ ] 13.2 **Editing an expense silently resets custom shares to equal.** The edit page passes no weight data (`edit/page.tsx:40-55`) and the editor rebuilds every share as `equal`/10000 (`expense-editor.tsx:60-71`). Because `updateExpenseAction` deletes and re-inserts all rows (`actions.ts:274-286`), opening an expense with custom percent/amount shares and saving any unrelated field — even just the description — destroys the split.
-  - Fix: hydrate `weightType`/`weightValue` (and `groupId`, per 9.1b) from `expense_shares` into editor state.
+  - Fixed by scoping item-level weights with an `itemIndex` into `payload.items` (`actions.ts:154`), inserting line items *before* shares, and resolving the index to the new `lineItemId` in a shared `insertExpenseShares` helper used by both actions. `buildShares` now also emits equal weights for items with no usable quantities, so no item is left without shares — `flow.integration.test.ts` proves the result matches the legacy fallback exactly, tax and tip included.
+  - The validator also had to stop treating item-scoped shares as total-level (`actions.ts:172`, `:253`); before, a second weighted item pushed the percent sum past 100% and the save threw outright.
+- [x] 13.2 **FIXED (whole-expense splits) — Editing an expense silently reset custom shares to equal.** The edit page passes no weight data (`edit/page.tsx:40-55`) and the editor rebuilds every share as `equal`/10000 (`expense-editor.tsx:60-71`). Because `updateExpenseAction` deletes and re-inserts all rows (`actions.ts:274-286`), opening an expense with custom percent/amount shares and saving any unrelated field — even just the description — destroys the split.
+  - Fixed with `hydrateTotalShares` (`src/lib/expense-hydrate.ts`), which the edit page now feeds into a new `initial.shares` prop; the editor seeds its share state from it instead of rebuilding everything as equal.
+  - **Still open:** this covers whole-expense (`even`) weights only. Itemized per-unit quantities are still not recoverable on edit — they are stored as derived percents, and quantity is not persisted, so reopening an itemized expense and saving falls back to an equal item split. Tracked in 9.1d; a full fix needs the per-item share state from 5.3/5.4.
+  - **Not covered by tests:** the editor's `useState` seeding is React state with no component test around it. `hydrateTotalShares` is unit-tested (`expense-hydrate.test.ts`) and the action round-trip is integration-tested; the wiring between them was verified by reading.

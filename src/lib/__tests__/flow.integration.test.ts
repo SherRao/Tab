@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
+import { hydrateTotalShares } from "@/lib/expense-hydrate";
 import os from "node:os";
 import path from "node:path";
 
@@ -250,5 +251,182 @@ describe("full event flow", () => {
         ],
       }),
     ).rejects.toThrow("Percent shares must sum to 100%");
+  });
+
+  // Regression: itemized per-item weights were emitted with lineItemId null and
+  // never backfilled, so the ledger's itemized branch dropped every line item.
+  it("keeps line-item consumption when quantity weights are used", async () => {
+    const { event } = await queries.createEventRecord("Quantity Split", ["Alice", "Bob"]);
+    const detail = await queries.getEventByToken(event.shareToken);
+    const [A, B] = detail!.participants.map((p) => p.id);
+
+    // One $30 item, Alice took 2 of 3 units, Bob 1.
+    await actions.saveExpenseAction(event.shareToken, {
+      payerId: A,
+      description: "Shared platter",
+      taxCents: 0,
+      tipCents: 0,
+      totalCents: 3000,
+      splitMode: "itemized",
+      items: [{ name: "Platter", amountCents: 3000, participantIds: [A, B] }],
+      shares: [
+        { participantId: A, itemIndex: 0, weightType: "percent", weightValue: 6667 },
+        { participantId: B, itemIndex: 0, weightType: "percent", weightValue: 3333 },
+      ],
+    });
+
+    const rows = await queries.getExpenses(event.id);
+    // Item-level shares must be anchored to a real line item, not stored as total-level.
+    expect(rows[0].shares.every((s) => s.lineItemId != null)).toBe(true);
+
+    const nets = toLedger(detail!, rows);
+    expect(nets.get(A)).toBe(1000); // paid 3000, consumed 2000
+    expect(nets.get(B)).toBe(-1000);
+    expect([...nets.values()].reduce((a, b) => a + b, 0)).toBe(0);
+  });
+
+  // Regression: item-level shares were misread as total-level by the validator,
+  // so a second weighted item pushed the percent sum past 100% and threw.
+  it("accepts several items that each carry their own percent weights", async () => {
+    const { event } = await queries.createEventRecord("Two Weighted Items", ["Alice", "Bob"]);
+    const detail = await queries.getEventByToken(event.shareToken);
+    const [A, B] = detail!.participants.map((p) => p.id);
+
+    await actions.saveExpenseAction(event.shareToken, {
+      payerId: A,
+      description: "Two items",
+      taxCents: 0,
+      tipCents: 0,
+      totalCents: 3000,
+      splitMode: "itemized",
+      items: [
+        { name: "Wine", amountCents: 2000, participantIds: [A, B] },
+        { name: "Bread", amountCents: 1000, participantIds: [A, B] },
+      ],
+      shares: [
+        { participantId: A, itemIndex: 0, weightType: "percent", weightValue: 7500 },
+        { participantId: B, itemIndex: 0, weightType: "percent", weightValue: 2500 },
+        { participantId: A, itemIndex: 1, weightType: "percent", weightValue: 5000 },
+        { participantId: B, itemIndex: 1, weightType: "percent", weightValue: 5000 },
+      ],
+    });
+
+    const rows = await queries.getExpenses(event.id);
+    const nets = toLedger(detail!, rows);
+    // Alice: 75% of 2000 + 50% of 1000 = 2000 consumed, paid 3000 -> +1000
+    expect(nets.get(A)).toBe(1000);
+    expect(nets.get(B)).toBe(-1000);
+  });
+
+  // Regression: a total-level share set with no item scope must still be validated.
+  it("still rejects total-level percents that miss 100%", async () => {
+    const { event } = await queries.createEventRecord("Still Validated", ["Alice", "Bob"]);
+    const detail = await queries.getEventByToken(event.shareToken);
+    const [A, B] = detail!.participants.map((p) => p.id);
+    await expect(
+      actions.saveExpenseAction(event.shareToken, {
+        payerId: A,
+        description: "Bad",
+        taxCents: 0,
+        tipCents: 0,
+        totalCents: 10000,
+        splitMode: "even",
+        items: [],
+        shares: [
+          { participantId: A, weightType: "percent", weightValue: 6000 },
+          { participantId: B, weightType: "percent", weightValue: 3000 },
+        ],
+      }),
+    ).rejects.toThrow("Percent shares must sum to 100%");
+  });
+
+  // Regression: the edit page rebuilt every share as "equal", so saving an
+  // unrelated field wiped a custom split.
+  it("keeps a custom split when an unrelated field is edited", async () => {
+    const { event } = await queries.createEventRecord("Edit Keeps Split", ["Alice", "Bob"]);
+    const detail = await queries.getEventByToken(event.shareToken);
+    const [A, B] = detail!.participants.map((p) => p.id);
+
+    await actions.saveExpenseAction(event.shareToken, {
+      payerId: A,
+      description: "Original",
+      taxCents: 0,
+      tipCents: 0,
+      totalCents: 10000,
+      splitMode: "even",
+      items: [],
+      shares: [
+        { participantId: A, weightType: "percent", weightValue: 7000 },
+        { participantId: B, weightType: "percent", weightValue: 3000 },
+      ],
+    });
+
+    const saved = (await queries.getExpenses(event.id))[0];
+
+    // What the edit page now hands the editor, and what the editor sends back
+    // when only the description changed.
+    const hydrated = hydrateTotalShares(saved.shares);
+    await actions.updateExpenseAction(event.shareToken, saved.expense.id, {
+      payerId: A,
+      description: "Renamed",
+      taxCents: 0,
+      tipCents: 0,
+      totalCents: 10000,
+      splitMode: "even",
+      items: [],
+      shares: hydrated,
+    });
+
+    const after = (await queries.getExpenses(event.id))[0];
+    expect(after.expense.description).toBe("Renamed");
+    expect(
+      after.shares
+        .filter((s) => s.lineItemId == null)
+        .map((s) => [s.participantId, s.weightType, s.weightValue])
+        .sort(),
+    ).toEqual([
+      [A, "percent", 7000],
+      [B, "percent", 3000],
+    ].sort());
+
+    const nets = toLedger(detail!, [after]);
+    expect(nets.get(A)).toBe(3000);
+    expect(nets.get(B)).toBe(-3000);
+  });
+
+  // The editor now emits equal item-level shares where it previously sent none.
+  // Balances must match the old no-shares fallback exactly, tax and tip included.
+  it("matches the legacy fallback when items are split equally", async () => {
+    async function netsFor(name: string, withShares: boolean) {
+      const { event } = await queries.createEventRecord(name, ["Alice", "Bob", "Cara"]);
+      const detail = await queries.getEventByToken(event.shareToken);
+      const [A, B, C] = detail!.participants.map((p) => p.id);
+      await actions.saveExpenseAction(event.shareToken, {
+        payerId: A,
+        description: "Dinner",
+        taxCents: 500,
+        tipCents: 700,
+        totalCents: 5200,
+        splitMode: "itemized",
+        items: [
+          { name: "Pasta", amountCents: 2000, participantIds: [A, B] },
+          { name: "Salad", amountCents: 2000, participantIds: [C] },
+        ],
+        shares: withShares
+          ? [
+              { participantId: A, itemIndex: 0, weightType: "equal", weightValue: 10000 },
+              { participantId: B, itemIndex: 0, weightType: "equal", weightValue: 10000 },
+              { participantId: C, itemIndex: 1, weightType: "equal", weightValue: 10000 },
+            ]
+          : [],
+      });
+      const nets = toLedger(detail!, await queries.getExpenses(event.id));
+      return [nets.get(A), nets.get(B), nets.get(C)];
+    }
+
+    const legacy = await netsFor("Legacy Fallback", false);
+    const current = await netsFor("Equal Item Shares", true);
+    expect(current).toEqual(legacy);
+    expect(current.reduce((a, b) => a! + b!, 0)).toBe(0);
   });
 });

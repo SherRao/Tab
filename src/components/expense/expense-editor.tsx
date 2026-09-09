@@ -31,6 +31,8 @@ export interface ExpenseEditorProps {
     total: string;
     splitMode: "itemized" | "even";
     selectedParticipantIds: number[];
+    /** Stored whole-expense weights; omit to default everyone to an equal share. */
+    shares?: ShareConfig[];
   };
 }
 
@@ -57,18 +59,17 @@ export default function ExpenseEditor({
   const [selectedParticipantIds, setSelectedParticipantIds] = useState<number[]>(
     initial?.selectedParticipantIds ?? participants.map((p) => p.id),
   );
-  const [shares, setShares] = useState<ShareConfig[]>(
-    initial?.selectedParticipantIds?.map((pid) => ({
+  const [shares, setShares] = useState<ShareConfig[]>(() => {
+    // Custom weights must survive a round-trip through the edit page; falling
+    // back to "equal" here silently destroys a saved percent/amount split.
+    if (initial?.shares?.length) return initial.shares;
+    const ids = initial?.selectedParticipantIds ?? participants.map((p) => p.id);
+    return ids.map((pid) => ({
       participantId: pid,
       weightType: "equal" as const,
       weightValue: 10000,
-    })) ??
-      participants.map((p) => ({
-        participantId: p.id,
-        weightType: "equal" as const,
-        weightValue: 10000,
-      })),
-  );
+    }));
+  });
   const [saving, setSaving] = useState(false);
 
   const computed = useMemo(() => {
@@ -107,7 +108,23 @@ export default function ExpenseEditor({
     updateItem(idx, { participantIds: participants.map((p) => p.id) });
   }
 
-  function buildShares() {
+  type PayloadItem = {
+    name: string;
+    amountCents: number;
+    participantIds: number[];
+    quantity: number;
+    participantQuantities: Record<number, number>;
+  };
+
+  /**
+   * Build the `expense_shares` payload.
+   *
+   * Itemized weights are scoped to a line item by `itemIndex` (an index into
+   * the same filtered item list sent as `items`); the action resolves it to the
+   * real line item id once the rows exist. Every assigned item emits shares —
+   * an item left out entirely would consume nothing.
+   */
+  function buildShares(payloadItems: PayloadItem[]) {
     if (splitMode === "even") {
       return shares.map((s) => ({
         participantId: s.participantId,
@@ -116,31 +133,35 @@ export default function ExpenseEditor({
         weightValue: s.weightValue,
       }));
     }
-    // Itemized: convert quantities to percent weights per line item
     const result: {
       participantId: number;
-      lineItemId: number | null;
+      itemIndex: number;
       weightType: "equal" | "percent" | "amount";
       weightValue: number;
     }[] = [];
-    for (const item of items) {
-      if (!item.name.trim() && !item.amount.trim()) continue;
-      const totalQty = parseInt(item.quantity) || 0;
-      if (totalQty > 0 && item.participantIds.length > 0) {
-        // Convert quantities to percent weights
+    payloadItems.forEach((item, itemIndex) => {
+      if (item.participantIds.length === 0) return;
+      const assignedQty = item.participantIds.reduce(
+        (sum, pid) => sum + (item.participantQuantities[pid] || 0),
+        0,
+      );
+      if (item.quantity > 0 && assignedQty > 0) {
+        // Per-unit split: turn quantities into percent weights.
         for (const pid of item.participantIds) {
-          const qty = item.participantQuantities[pid] || 0;
-          const weightValue = Math.round((qty / totalQty) * 10000);
           result.push({
             participantId: pid,
-            lineItemId: null, // will be set by the action after line item insertion
+            itemIndex,
             weightType: "percent",
-            weightValue,
+            weightValue: Math.round(((item.participantQuantities[pid] || 0) / item.quantity) * 10000),
           });
         }
+      } else {
+        // No usable quantities: split the item equally between its assignees.
+        for (const pid of item.participantIds) {
+          result.push({ participantId: pid, itemIndex, weightType: "equal", weightValue: 10000 });
+        }
       }
-      // If no quantities, the action falls back to equal splits from participantIds
-    }
+    });
     return result;
   }
 
@@ -158,7 +179,7 @@ export default function ExpenseEditor({
           participantQuantities: it.participantQuantities,
         }));
 
-      const payloadShares = buildShares();
+      const payloadShares = buildShares(filteredItems);
 
       const payload = {
         payerId,

@@ -3,6 +3,7 @@ import { toFixedMoney } from "@/lib/format";
 import { notFound } from "next/navigation";
 import ExpenseEditor from "@/components/expense/expense-editor";
 import Link from "next/link";
+import { hydrateTotalShares } from "@/lib/expense-hydrate";
 
 export default async function EditExpensePage({
   params,
@@ -17,11 +18,9 @@ export default async function EditExpensePage({
   if (!row) notFound();
   const { expense, items, shares } = row;
 
-  // Reconstruct selectedParticipantIds from shares
-  const totalShares = shares.filter((s) => s.lineItemId == null);
-  const selectedParticipantIds = totalShares
-    .map((s) => s.participantId)
-    .filter((id): id is number => id != null);
+  // Reconstruct the editor's whole-expense split, weights included.
+  const editorShares = hydrateTotalShares(shares);
+  const selectedParticipantIds = editorShares.map((s) => s.participantId);
 
   return (
     <main className="mx-auto w-full max-w-xl flex-1 px-6 pt-8 pb-16">
@@ -52,6 +51,7 @@ export default async function EditExpensePage({
             total: toFixedMoney(expense.totalCents),
             splitMode: expense.splitMode as "itemized" | "even",
             selectedParticipantIds,
+            shares: editorShares,
           }}
         />
       </div>
