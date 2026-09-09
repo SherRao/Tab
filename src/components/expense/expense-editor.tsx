@@ -391,6 +391,7 @@ export default function ExpenseEditor({
                 size="md"
                 participants={participants}
                 selectedIds={selectedParticipantIds}
+                lockedIds={[...groupMemberIds]}
                 showSelectAll
                 onToggle={(pid) =>
                   setSelectedParticipantIds((prev) => {

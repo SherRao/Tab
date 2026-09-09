@@ -11,14 +11,20 @@ export function ChipToggleGroup({
   onToggle,
   size = "sm",
   showSelectAll = false,
+  lockedIds = [],
 }: {
   participants: { id: number; name: string }[];
   selectedIds: number[];
   onToggle: (id: number) => void;
   size?: keyof typeof SIZE_CLASSES;
   showSelectAll?: boolean;
+  /** Ids that render as selected but can't be toggled (e.g. covered by a group). */
+  lockedIds?: number[];
 }) {
-  const allSelected = participants.length > 0 && participants.every((p) => selectedIds.includes(p.id));
+  const isLocked = (id: number) => lockedIds.includes(id);
+  const allSelected =
+    participants.length > 0 &&
+    participants.every((p) => selectedIds.includes(p.id) || isLocked(p.id));
 
   return (
     <>
@@ -26,13 +32,14 @@ export function ChipToggleGroup({
         <button
           type="button"
           onClick={() => {
+            // Locked ids are controlled by a group, so select-all leaves them be.
             if (allSelected) {
               for (const p of participants) {
-                if (selectedIds.includes(p.id)) onToggle(p.id);
+                if (!isLocked(p.id) && selectedIds.includes(p.id)) onToggle(p.id);
               }
             } else {
               for (const p of participants) {
-                if (!selectedIds.includes(p.id)) onToggle(p.id);
+                if (!isLocked(p.id) && !selectedIds.includes(p.id)) onToggle(p.id);
               }
             }
           }}
@@ -46,16 +53,22 @@ export function ChipToggleGroup({
         </button>
       )}
       {participants.map((p) => {
-        const on = selectedIds.includes(p.id);
+        const locked = isLocked(p.id);
+        const on = locked || selectedIds.includes(p.id);
         return (
           <button
             key={p.id}
             type="button"
+            disabled={locked}
+            aria-pressed={on}
             onClick={() => onToggle(p.id)}
-            className={`rounded-full ${SIZE_CLASSES[size]} font-mono font-medium tracking-wide uppercase transition active:scale-[0.95] ${
-              on
-                ? "bg-accent text-white shadow-sm"
-                : "bg-stone-200/70 text-stone-600 hover:bg-stone-300/70"
+            title={locked ? "Added through a selected group" : undefined}
+            className={`rounded-full ${SIZE_CLASSES[size]} font-mono font-medium tracking-wide uppercase transition ${
+              locked
+                ? "bg-accent text-white shadow-sm opacity-60 cursor-not-allowed"
+                : on
+                  ? "bg-accent text-white shadow-sm active:scale-[0.95]"
+                  : "bg-stone-200/70 text-stone-600 hover:bg-stone-300/70 active:scale-[0.95]"
             }`}
           >
             {on && "✓ "}
