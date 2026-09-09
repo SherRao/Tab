@@ -1,3 +1,18 @@
+> **SUPERSEDED — 2026-09-08. Not implemented; do not implement as written.**
+>
+> This change was drafted against a data model that no longer exists. It stores
+> `groupIds` as a json column on `expenses`, keys balance computation off
+> `evenParticipantIds`, and preserves a third `group` split mode. The
+> `split-ux-redesign` change removed all three: the `even_participant_ids` and
+> `group_ids` columns are gone, `SPLIT_MODES` is now `["itemized", "even"]`, and
+> group membership is referenced from `expense_shares.groupId` and resolved live
+> at compute time.
+>
+> Every requirement here was rewritten for that model in
+> `openspec/changes/split-ux-redesign/specs/expense/groups/spec.md`. The groups
+> UI and data-access work that was never built is tracked in that change's task
+> list, not here. Implementing this proposal as written would undo the redesign.
+
 ## Why
 
 Creating expenses within events becomes tedious when you need to repeatedly select the same subsets of participants. For group trips, weekends away, or any event with natural sub-groupings (e.g., two cars, dining tables), users should be able to define participant groups once and assign expenses to them. This avoids re-selecting individuals every time and makes the UI cleaner when expenses naturally align with existing group boundaries.
