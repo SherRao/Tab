@@ -3,9 +3,11 @@ import {
   events,
   expenses,
   expenseShares,
+  groups,
   lineItemShares,
   lineItems,
   participantClaims,
+  participantGroup,
   participants,
   users,
 } from "@/db/schema";
@@ -35,6 +37,48 @@ export async function getEventByToken(token: string): Promise<EventDetail | null
     event,
     participants: rows.map((r) => ({ ...r.participant, userDisplayName: r.userDisplayName })),
   };
+}
+
+export interface GroupView {
+  id: number;
+  name: string;
+  memberIds: number[];
+}
+
+/** Groups for an event, each with its current member participant ids. */
+export async function getGroupsForEvent(eventId: number): Promise<GroupView[]> {
+  const groupRows = await db
+    .select()
+    .from(groups)
+    .where(eq(groups.eventId, eventId))
+    .orderBy(asc(groups.id));
+  if (groupRows.length === 0) return [];
+  const memberRows = await db
+    .select()
+    .from(participantGroup)
+    .where(
+      inArray(
+        participantGroup.groupId,
+        groupRows.map((g) => g.id),
+      ),
+    );
+  return groupRows.map((g) => ({
+    id: g.id,
+    name: g.name,
+    memberIds: memberRows.filter((m) => m.groupId === g.id).map((m) => m.participantId),
+  }));
+}
+
+/**
+ * Build the live group-member lookup the ledger uses to resolve `groupId`
+ * shares at compute time.
+ */
+export async function getGroupMemberLookup(
+  eventId: number,
+): Promise<(groupId: number) => number[]> {
+  const groupsForEvent = await getGroupsForEvent(eventId);
+  const byId = new Map(groupsForEvent.map((g) => [g.id, g.memberIds]));
+  return (groupId: number) => byId.get(groupId) ?? [];
 }
 
 export interface ClaimView {

@@ -28,7 +28,7 @@
 - [x] 2.7 `npm test` passes (57 tests, up from 38)
 - [x] 2.8 `resolveShares` (`ledger.ts:81`) is genuinely shared by `computeConsumption` (`:181`, `:215`) and `computeParticipantBreakdown` (`:367`, `:430`)
 - [x] 2.9 Breakdown uses the shared helper; parity tests at `ledger.test.ts:420`
-- [ ] 2.10 **NEW —** `groupMemberLookup` is dead in production. It defaults to `() => []` (`ledger.ts:161, 290, 346`) and the only real caller passes nothing (`src/app/(app)/e/[token]/page.tsx:93` and `:153`), so any `groupId` share resolves to zero members. Only tests exercise the live path. Blocked on section 4 giving groups a way to exist
+- [x] 2.10 `getGroupMemberLookup` (`queries.ts`) now feeds both `computeNetBalances` and `computeParticipantBreakdown` on the event page, so `groupId` shares resolve to live membership. Integration-tested in `groups-flow.integration.test.ts`
 - [ ] 2.11 **NEW —** Only the *inner* duplication was removed in 2.8. `computeParticipantBreakdown:359-536` still re-implements the even/itemized branching, the no-shares fallback, and tax/tip allocation using a different algorithm (`Math.round(ratio * extra)` at `:459`, `:383`) than `computeConsumption` (`allocateByWeights` at `:234`). The two paths can disagree by a cent — extract the extras allocation too
 
 ## 3. Actions & Queries
@@ -48,8 +48,8 @@
 - [ ] 4.3 **NOT DONE (was wrongly ticked)** — there is no group-pill row and no "New Group" pill anywhere in the editor. `expense-editor.tsx` contains no group state at all
 - [ ] 4.4 **NOT DONE (was wrongly ticked)** — `GroupPill` does not exist; no tap-to-union, no long-press-to-edit, no member count
 - [ ] 4.5 **PARTIAL (was wrongly ticked)** — `group-create-modal.tsx` exists but is **imported nowhere**; it is dead code. Wire it up or delete it
-- [ ] 4.6 **NEW —** There are **no group queries or server actions at all** (`grep -n "group" src/lib/queries.ts src/lib/actions.ts` returns nothing). Nothing in the app can create a group, read its members, or edit membership. This is the foundation the rest of section 4 and all of 2.10 depend on — do it first
-- [ ] 4.7 **NEW —** Selecting a group must write `expense_shares` rows with `groupId` set and `participantId` NULL, per `specs/expense/groups/spec.md`; `buildShares()` (`expense-editor.tsx:109`) currently only ever emits `participantId`
+- [x] 4.6 Group data layer landed: `getGroupsForEvent` / `getGroupMemberLookup` (`queries.ts`) and `createGroupAction` / `updateGroupAction` (`actions.ts`), gated by session + share token, validating name, non-empty membership, and event ownership of the group. **Deferred:** `deleteGroupAction` — `expenseShares.groupId` is `set null` on delete, so deletion silently strips a group's shares from balances; it needs an in-use guard, which I'll build alongside the UI so the state is visible
+- [ ] 4.7 **NEW —** Selecting a group must write `expense_shares` rows with `groupId` set and `participantId` NULL, per `specs/expense/groups/spec.md`; `buildShares()` currently only ever emits `participantId`. The action + query layer already accepts and resolves `groupId` shares (4.6) — this is the editor half
 
 ## 5. Editor UI: Progressive Weights
 
@@ -66,7 +66,7 @@
 - [ ] 6.1 **NOT DONE (was wrongly ticked)** — the event page has no group pills and no group editing. `src/app/(app)/e/[token]/page.tsx` mentions groups only when mapping `s.groupId` through to the ledger (`:86`, `:139`)
 - [ ] 6.2 **NOT DONE (was wrongly ticked)** — nothing can create a group in either surface, so there is nothing to keep in sync
 - [x] 6.3 The `ledgerExpenses` mapper passes `shares` (including `groupId`) to both `computeNetBalances` and `computeParticipantBreakdown` (`page.tsx:70-90`, `:121-148`)
-- [ ] 6.4 **NEW —** Pass a real `groupMemberLookup` into `computeNetBalances` (`page.tsx:93`) and `computeParticipantBreakdown` (`:153`), built from `participantGroup`. Without this, 6.3's `groupId` plumbing terminates in a no-op — see 2.10
+- [x] 6.4 The event page builds `getGroupMemberLookup(event.id)` from `participantGroup` and passes it to both ledger calls, so 6.3's `groupId` plumbing now resolves
 
 ## 7. Receipt List & Display
 
@@ -101,7 +101,7 @@
 - [x] 11.1 Percent (`ledger.test.ts:179`), amount (`:202`), mixed (`:280`)
 - [x] 11.2 Live group resolution (`ledger.test.ts:341`)
 - [x] 11.3 Integration: custom percent shares round-trip through `saveExpenseAction` (`flow.integration.test.ts:209`) plus percent validation (`:236`). Only percent is covered — no integration coverage for `amount` or mixed
-- [ ] 11.4 **PARTIAL (was wrongly ticked)** — the only coverage is the ledger *unit* test at `ledger.test.ts:371`, which injects a hand-built `Map`. No test touches the `participantGroup` table. A real integration test here would have caught 2.10/6.4
+- [x] 11.4 `groups-flow.integration.test.ts` drives the real actions and `participantGroup` table: create + resolve, live add, live remove, and the validation guards. This is the integration coverage that 2.10/6.4 lacked
 - [x] 11.5 `npm test` — 57 passing
 - [x] 11.6 `npm run lint` — 0 errors (one pre-existing unrelated warning in `commitlint.config.mjs`)
 - [ ] 11.7 Migration test for legacy `even` expenses — nothing imports or exercises `migrate-shares.ts`; its legacy `group_ids` branch (`:93-100`) has never been executed. See 1.7: decide the script's fate first

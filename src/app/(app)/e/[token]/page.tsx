@@ -1,6 +1,7 @@
 import {
   getEventByToken,
   getExpenses,
+  getGroupMemberLookup,
   getPendingClaims,
   claimedParticipantIdsForUser,
 } from "@/lib/queries";
@@ -62,10 +63,11 @@ export default async function EventPage({
   const isOwner = viewer != null && detail.event.ownerId === viewer.id;
 
   const { event, participants: people } = detail;
-  const [expenseRows, pendingClaims, viewerClaimedIds] = await Promise.all([
+  const [expenseRows, pendingClaims, viewerClaimedIds, groupMemberLookup] = await Promise.all([
     getExpenses(event.id),
     isOwner ? getPendingClaims(event.id) : Promise.resolve([]),
     viewer ? claimedParticipantIdsForUser(event.id, viewer.id) : Promise.resolve(new Set<number>()),
+    getGroupMemberLookup(event.id),
   ]);
 
   const ledgerExpenses: LedgerExpense[] = expenseRows.map(({ expense, items, shares }) => ({
@@ -90,7 +92,7 @@ export default async function EventPage({
     })),
   }));
 
-  const nets = computeNetBalances(people, ledgerExpenses);
+  const nets = computeNetBalances(people, ledgerExpenses, groupMemberLookup);
   const transfers = simplifyDebts(nets);
   const nameOf = new Map(people.map((p) => [p.id, p.userDisplayName ?? p.name]));
   const grandTotal = expenseRows.reduce((sum, r) => sum + r.expense.totalCents, 0);
@@ -150,7 +152,12 @@ export default async function EventPage({
 
   const breakdowns = new Map<number, ParticipantBreakdownView>();
   for (const p of people) {
-    const b = computeParticipantBreakdown(ledgerParticipants, ledgerExpenses, p.id);
+    const b = computeParticipantBreakdown(
+      ledgerParticipants,
+      ledgerExpenses,
+      p.id,
+      groupMemberLookup,
+    );
     breakdowns.set(p.id, {
       items: b.items.map((i) => ({ ...i })),
       taxShareCents: b.taxShareCents,

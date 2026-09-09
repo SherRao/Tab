@@ -4,9 +4,11 @@ import { db } from "@/db";
 import {
   expenses,
   expenseShares,
+  groups,
   lineItemShares,
   lineItems,
   participantClaims,
+  participantGroup,
   participants,
   SPLIT_MODES,
   type SplitMode,
@@ -427,5 +429,64 @@ export async function decideClaimAction(formData: FormData) {
       .set({ status: "denied", decidedAt: new Date() })
       .where(eq(participantClaims.id, claimId));
   }
+  revalidatePath(`/e/${token}`);
+}
+
+/**
+ * Load an event by share token and validate a set of member ids against its
+ * participants. Group actions are gated the same way as every other write:
+ * a signed-in session plus the share token. Throws on any problem.
+ */
+async function requireEventForGroup(token: string, memberIds: number[]) {
+  await requireSession();
+  const detail = await getEventByToken(token);
+  if (!detail) throw new Error("Event not found");
+  const validIds = new Set(detail.participants.map((p) => p.id));
+  const members = [...new Set(memberIds)].filter((id) => validIds.has(id));
+  if (members.length === 0) throw new Error("A group needs at least one member");
+  return { detail, members };
+}
+
+export async function createGroupAction(
+  token: string,
+  name: string,
+  memberIds: number[],
+): Promise<number> {
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Group name is required");
+  const { detail, members } = await requireEventForGroup(token, memberIds);
+
+  const [group] = await db
+    .insert(groups)
+    .values({ eventId: detail.event.id, name: trimmed })
+    .returning();
+  await db
+    .insert(participantGroup)
+    .values(members.map((participantId) => ({ groupId: group.id, participantId })));
+
+  revalidatePath(`/e/${token}`);
+  return group.id;
+}
+
+export async function updateGroupAction(
+  token: string,
+  groupId: number,
+  name: string,
+  memberIds: number[],
+): Promise<void> {
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Group name is required");
+  const { detail, members } = await requireEventForGroup(token, memberIds);
+
+  // The group must belong to this event, not just any event.
+  const [group] = await db.select().from(groups).where(eq(groups.id, groupId));
+  if (!group || group.eventId !== detail.event.id) throw new Error("Group not found");
+
+  await db.update(groups).set({ name: trimmed }).where(eq(groups.id, groupId));
+  await db.delete(participantGroup).where(eq(participantGroup.groupId, groupId));
+  await db
+    .insert(participantGroup)
+    .values(members.map((participantId) => ({ groupId, participantId })));
+
   revalidatePath(`/e/${token}`);
 }
