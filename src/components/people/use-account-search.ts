@@ -6,7 +6,6 @@ export interface AccountMatch {
   id: number;
   username: string;
   displayName: string;
-  email: string;
 }
 
 export function useAccountSearch(query: string, enabled: boolean) {
