@@ -17,7 +17,7 @@ import {
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { and, eq, inArray } from "drizzle-orm";
-import { createEventRecord, getEventByToken } from "./queries";
+import { createEventRecord, getEventByToken, getGroupsForEvent } from "./queries";
 import { requireSession, getSessionUser, appBaseUrl, createLoginToken } from "./auth";
 import { sendEmail } from "./email";
 import {
@@ -168,8 +168,18 @@ async function insertExpenseShares(
   expenseId: number,
   shares: ExpensePayload["shares"],
   lineItemIds: number[],
+  validParticipantIds: Set<number>,
+  validGroupIds: Set<number>,
 ) {
   if (shares.length === 0) return;
+  for (const s of shares) {
+    if (s.participantId != null && !validParticipantIds.has(s.participantId)) {
+      throw new Error("Share references a participant that is not in this event");
+    }
+    if (s.groupId != null && !validGroupIds.has(s.groupId)) {
+      throw new Error("Share references a group that is not in this event");
+    }
+  }
   await db.insert(expenseShares).values(
     shares.map((s) => ({
       expenseId,
@@ -240,7 +250,8 @@ export async function saveExpenseAction(token: string, payload: ExpensePayload) 
     }
   }
 
-  await insertExpenseShares(expense.id, payload.shares, lineItemIds);
+  const validGroupIds = new Set((await getGroupsForEvent(detail.event.id)).map((g) => g.id));
+  await insertExpenseShares(expense.id, payload.shares, lineItemIds, validIds, validGroupIds);
 
   revalidatePath(`/e/${token}`);
 }
@@ -323,7 +334,8 @@ export async function updateExpenseAction(
     }
   }
 
-  await insertExpenseShares(expenseId, payload.shares, lineItemIds);
+  const validGroupIds = new Set((await getGroupsForEvent(detail.event.id)).map((g) => g.id));
+  await insertExpenseShares(expenseId, payload.shares, lineItemIds, validIds, validGroupIds);
 
   revalidatePath(`/e/${token}`);
 }
