@@ -18,7 +18,13 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { and, eq, inArray } from "drizzle-orm";
 import { createEventRecord, getEventByToken, getGroupsForEvent } from "./queries";
-import { requireSession, getSessionUser, appBaseUrl, createLoginToken } from "./auth";
+import {
+  requireSession,
+  getSessionUser,
+  appBaseUrl,
+  createLoginToken,
+  loginTokenRateOk,
+} from "./auth";
 import { sendEmail } from "./email";
 import {
   addParticipant as addParticipantRow,
@@ -74,6 +80,7 @@ export async function createEventAction(formData: FormData) {
   // Send invitation emails for any invited participants created up front.
   for (const person of created) {
     if (person.email == null || person.invitedAt == null) continue;
+    if (!(await loginTokenRateOk(person.email))) continue;
     try {
       const token = await createLoginToken(person.email, person.id);
       await sendEmail({
@@ -126,7 +133,7 @@ export async function addParticipantAction(formData: FormData) {
     if (input.mode === "account" && !Number.isInteger(input.userId)) return;
 
     const row = await addParticipantRow(detail.event.id, input);
-    if (row.email != null && row.invitedAt != null) {
+    if (row.email != null && row.invitedAt != null && (await loginTokenRateOk(row.email))) {
       const inviteToken = await createLoginToken(row.email, row.id);
       await sendEmail({
         to: row.email,

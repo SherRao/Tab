@@ -10,6 +10,7 @@ import {
   consumeLoginToken,
   createLoginToken,
   createSession,
+  loginTokenRateOk,
   destroySession,
   findUserByEmail,
   normalizeEmail,
@@ -34,14 +35,18 @@ export async function requestSignInAction(formData: FormData) {
     redirect("/signin?error=invalid");
   }
 
-  const token = await createLoginToken(email);
-  await sendEmail({
-    to: email,
-    subject: "Your Tab sign-in link",
-    text: `Open this link to sign in to Tab (valid for 15 minutes):\n\n${loginUrl(token)}${
-      next ? `\n\nAfter signing in you will return to ${next}` : ""
-    }`,
-  });
+  // Throttle per email. When over the limit we skip sending but still return
+  // the same "sent" response, so the throttle reveals nothing about the address.
+  if (await loginTokenRateOk(email)) {
+    const token = await createLoginToken(email);
+    await sendEmail({
+      to: email,
+      subject: "Your Tab sign-in link",
+      text: `Open this link to sign in to Tab (valid for 15 minutes):\n\n${loginUrl(token)}${
+        next ? `\n\nAfter signing in you will return to ${next}` : ""
+      }`,
+    });
+  }
   redirect(next ? `/signin?sent=1&next=${encodeURIComponent(next)}` : "/signin?sent=1");
 }
 

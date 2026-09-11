@@ -10,6 +10,9 @@ const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const LOGIN_TOKEN_TTL_MS = 15 * 60 * 1000;
 /** Renew the session row once less than this much lifetime remains. */
 const SESSION_RENEW_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000;
+/** Sliding window and cap for login/invite tokens issued per email address. */
+const LOGIN_TOKEN_RATE_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_TOKEN_RATE_MAX = 5;
 
 export function generateToken(): string {
   return randomBytes(32).toString("base64url");
@@ -25,6 +28,22 @@ export function normalizeEmail(email: string): string {
 
 export function appBaseUrl(): string {
   return process.env.NEXT_APP_URL ?? "http://localhost:3000";
+}
+
+/**
+ * True if another login/invite token may be issued for this email right now.
+ * Caps the number of tokens (and therefore emails) an unauthenticated caller
+ * can trigger for a single address within the sliding window. Opportunistically
+ * purges stale tokens so the table does not grow unbounded.
+ */
+export async function loginTokenRateOk(email: string): Promise<boolean> {
+  await purgeStaleAuthTokens();
+  const since = new Date(Date.now() - LOGIN_TOKEN_RATE_WINDOW_MS);
+  const [row] = await db
+    .select({ n: sql<number>`count(*)` })
+    .from(authTokens)
+    .where(and(eq(authTokens.email, normalizeEmail(email)), gt(authTokens.createdAt, since)));
+  return (row?.n ?? 0) < LOGIN_TOKEN_RATE_MAX;
 }
 
 export async function createLoginToken(email: string, participantId?: number): Promise<string> {
