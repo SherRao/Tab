@@ -28,10 +28,14 @@ export interface AccountSuggestion {
   id: number;
   username: string;
   displayName: string;
-  email: string;
 }
 
-/** Signed-in-only account search: username substring or exact email. */
+/**
+ * Signed-in-only account search: username substring or exact email. Email is
+ * matched but never returned — the add-person UI only needs id/username/
+ * displayName, and returning addresses would let any signed-in user enumerate
+ * every registered email.
+ */
 export async function searchAccounts(query: string): Promise<AccountSuggestion[]> {
   const q = query.trim().toLowerCase();
   if (q.length < 2) return [];
@@ -40,7 +44,6 @@ export async function searchAccounts(query: string): Promise<AccountSuggestion[]
       id: users.id,
       username: users.username,
       displayName: users.displayName,
-      email: users.email,
     })
     .from(users)
     .where(or(sql`${users.username} like ${"%" + q + "%"}`, eq(users.email, q)))
