@@ -407,9 +407,14 @@ export async function decideClaimAction(formData: FormData) {
   }
 
   const [claim] = await db
-    .select()
+    .select({ id: participantClaims.id, participantId: participantClaims.participantId, requesterUserId: participantClaims.requesterUserId })
     .from(participantClaims)
-    .where(and(eq(participantClaims.id, claimId), eq(participantClaims.status, "pending")));
+    .innerJoin(participants, eq(participantClaims.participantId, participants.id))
+    .where(and(
+      eq(participantClaims.id, claimId),
+      eq(participantClaims.status, "pending"),
+      eq(participants.eventId, detail.event.id),
+    ));
   if (!claim) redirect(`/e/${token}`);
 
   if (decision === "approve") {
