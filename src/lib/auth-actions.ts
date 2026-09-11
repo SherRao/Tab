@@ -11,6 +11,7 @@ import {
   createLoginToken,
   createSession,
   loginTokenRateOk,
+  safeNextPath,
   destroySession,
   findUserByEmail,
   normalizeEmail,
@@ -30,7 +31,7 @@ function loginUrl(token: string): string {
  */
 export async function requestSignInAction(formData: FormData) {
   const email = normalizeEmail(String(formData.get("email") ?? ""));
-  const next = String(formData.get("next") ?? "");
+  const next = safeNextPath(String(formData.get("next") ?? ""));
   if (!EMAIL_RE.test(email)) {
     redirect("/signin?error=invalid");
   }
@@ -61,7 +62,7 @@ export async function completeSignUpAction(formData: FormData): Promise<void> {
     .trim()
     .toLowerCase();
   const displayName = String(formData.get("displayName") ?? "").trim();
-  const next = String(formData.get("next") ?? "");
+  const next = safeNextPath(String(formData.get("next") ?? ""));
 
   if (!/^[a-z0-9_]{2,24}$/.test(username)) {
     redirect(

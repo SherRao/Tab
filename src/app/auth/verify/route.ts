@@ -3,7 +3,13 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { events, participants } from "@/db/schema";
-import { consumeLoginToken, createSession, findUserByEmail, peekLoginToken } from "@/lib/auth";
+import {
+  consumeLoginToken,
+  createSession,
+  findUserByEmail,
+  peekLoginToken,
+  safeNextPath,
+} from "@/lib/auth";
 import { linkAccountToParticipant, ParticipantError } from "@/lib/participants";
 
 async function eventPathFor(participantId: number): Promise<string | null> {
@@ -27,7 +33,7 @@ async function tryClaim(participantId: number, userId: number): Promise<void> {
 export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const token = url.searchParams.get("token") ?? "";
-  const next = url.searchParams.get("next");
+  const next = safeNextPath(url.searchParams.get("next"));
 
   const peeked = token ? await peekLoginToken(token) : null;
   if (!peeked) {
