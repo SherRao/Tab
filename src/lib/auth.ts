@@ -26,6 +26,20 @@ export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+/**
+ * Sanitize a post-auth `next` redirect target. Only same-origin absolute
+ * paths are allowed: rejects offsite/protocol-relative URLs (open redirect)
+ * and anything with whitespace (keeps attacker text out of the email body,
+ * where `next` is also interpolated). Returns null if unusable.
+ */
+export function safeNextPath(next: string | null | undefined): string | null {
+  if (!next) return null;
+  if (!next.startsWith("/")) return null;
+  if (next.startsWith("//") || next.startsWith("/\\")) return null;
+  if (/\s/.test(next)) return null;
+  return next;
+}
+
 export function appBaseUrl(): string {
   return process.env.NEXT_APP_URL ?? "http://localhost:3000";
 }
