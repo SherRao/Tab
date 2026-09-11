@@ -315,7 +315,7 @@ export async function updateExpenseAction(
       .values({ expenseId, name: item.name, amountCents: item.amountCents })
       .returning();
     lineItemIds.push(row.id);
-    const shares = [...new Set(item.participantIds)];
+    const shares = [...new Set(item.participantIds)].filter((id) => validIds.has(id));
     if (shares.length) {
       await db
         .insert(lineItemShares)
