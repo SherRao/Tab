@@ -83,7 +83,7 @@ export default function ScanReceipt({
       <div className="receipt-lined p-6 pb-8">
         <h2 className="text-lg font-semibold tracking-tight">Scan a receipt</h2>
         <p className="mt-1 text-sm text-stone-500">
-          Take a photo of the receipt — everything stays on your device.
+          Take a photo of the receipt — your photo never leaves your device.
         </p>
 
         <input
