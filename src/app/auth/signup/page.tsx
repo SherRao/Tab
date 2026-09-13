@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { peekLoginToken } from "@/lib/auth";
+import { peekLoginToken, readSignupToken } from "@/lib/auth";
 import { SignUpForm } from "@/components/auth/sign-up-form";
 import type { Metadata } from "next";
 
@@ -8,10 +8,11 @@ export const metadata: Metadata = { title: "Create your account" };
 export default async function SignUpPage({
   searchParams,
 }: {
-  searchParams: Promise<{ token?: string; error?: string; next?: string }>;
+  searchParams: Promise<{ error?: string; next?: string }>;
 }) {
-  const { token = "", error, next } = await searchParams;
-  const peeked = await peekLoginToken(token);
+  const { error, next } = await searchParams;
+  const token = await readSignupToken();
+  const peeked = token ? await peekLoginToken(token) : null;
   if (!peeked) redirect("/signin?error=expired");
 
   return (
@@ -21,7 +22,7 @@ export default async function SignUpPage({
         Signing up as <span className="font-mono text-sm">{peeked.email}</span>
       </p>
 
-      <SignUpForm token={token} error={error} next={next} />
+      <SignUpForm error={error} next={next} />
     </main>
   );
 }
