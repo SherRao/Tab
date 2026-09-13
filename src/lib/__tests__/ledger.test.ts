@@ -176,6 +176,31 @@ describe("computeNetBalances", () => {
     expect([...nets.values()].reduce((a, b) => a + b, 0)).toBe(0);
   });
 
+  it("a participant with both amount and percent shares is not double-counted (C4)", () => {
+    const expenses: LedgerExpense[] = [
+      {
+        payerId: 2,
+        taxCents: 0,
+        tipCents: 0,
+        totalCents: 1000,
+        splitMode: "even",
+        lineItems: [],
+        shares: [
+          { participantId: 1, weightType: "amount", weightValue: 400 },
+          { participantId: 1, weightType: "percent", weightValue: 5000 },
+          { participantId: 2, weightType: "equal", weightValue: 10000 },
+        ],
+      },
+    ];
+    const b = computeParticipantBreakdown([alice, bob], expenses, 1);
+    // Alice's displayed split row must equal her total consumption, not just
+    // the first of her two share rows.
+    const rowSum = b.items.reduce((s, i) => s + i.shareCents, 0);
+    expect(rowSum).toBe(b.totalConsumedCents);
+    const nets = computeNetBalances([alice, bob], expenses);
+    expect([...nets.values()].reduce((a, b) => a + b, 0)).toBe(0);
+  });
+
   it("amount shares exceeding the total are scaled down, not conjured (C3)", () => {
     // Alice's $12 alone exceeds the $10 total; Bob has an equal (weight) share.
     const nets = computeNetBalances(
