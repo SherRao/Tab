@@ -176,6 +176,34 @@ describe("computeNetBalances", () => {
     expect([...nets.values()].reduce((a, b) => a + b, 0)).toBe(0);
   });
 
+  it("itemized shares: an unassigned line item is split across everyone and still sums to zero", () => {
+    // item 10 ($20) is shared by both; item 11 ($10) has no shares -> unassigned.
+    const nets = computeNetBalances(
+      [alice, bob],
+      [
+        {
+          payerId: 1,
+          taxCents: 0,
+          tipCents: 0,
+          totalCents: 3000,
+          splitMode: "itemized",
+          lineItems: [
+            { id: 10, name: "Shared app", amountCents: 2000, participantIds: [] },
+            { id: 11, name: "Unassigned", amountCents: 1000, participantIds: [] },
+          ],
+          shares: [
+            { participantId: 1, lineItemId: 10, weightType: "equal", weightValue: 10000 },
+            { participantId: 2, lineItemId: 10, weightType: "equal", weightValue: 10000 },
+          ],
+        },
+      ],
+    );
+    // item 10: $10 each; item 11: split across all -> $5 each. Payer paid $30.
+    expect(nets.get(1)).toBe(3000 - 1500);
+    expect(nets.get(2)).toBe(-1500);
+    expect([...nets.values()].reduce((a, b) => a + b, 0)).toBe(0);
+  });
+
   it("percent shares divide proportionally", () => {
     const nets = computeNetBalances(
       [alice, bob],
