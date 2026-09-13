@@ -37,6 +37,13 @@ import {
 } from "./participants";
 import { DELETE_ERROR_ONLY_OWNER, EVENT_ERRORS } from "./event-errors";
 
+/** Money is integer cents end-to-end; reject anything that would break that. */
+function assertSafeCents(value: number, label: string) {
+  if (!Number.isSafeInteger(value) || value < 0 || value > 100_000_000) {
+    throw new Error(`${label} must be a whole number of cents between 0 and 100000000`);
+  }
+}
+
 export async function createEventAction(formData: FormData) {
   const user = await requireSession("/");
   const name = String(formData.get("name") ?? "").trim();
@@ -74,8 +81,11 @@ export async function createEventAction(formData: FormData) {
 
   try {
     await addParticipantRow(event.id, { mode: "account", userId: user.id });
-} catch {
-    await addParticipantRow(event.id, { mode: "guest", name: user.displayName ?? user.username ?? "You" });
+  } catch {
+    await addParticipantRow(event.id, {
+      mode: "guest",
+      name: user.displayName ?? user.username ?? "You",
+    });
   }
 
   // Send invitation emails for any invited participants created up front.
@@ -130,7 +140,11 @@ export async function addParticipantAction(formData: FormData) {
         ? { mode: "account", userId: Number(parsed.userId) }
         : parsed.mode === "invite"
           ? { mode: "invite", name: String(parsed.name ?? ""), email: String(parsed.email ?? "") }
-          : { mode: "guest", name: String(parsed.name ?? ""), email: parsed.email ? String(parsed.email) : undefined };
+          : {
+              mode: "guest",
+              name: String(parsed.name ?? ""),
+              email: parsed.email ? String(parsed.email) : undefined,
+            };
     if (input.mode === "account" && !Number.isInteger(input.userId)) return;
 
     const row = await addParticipantRow(detail.event.id, input);
@@ -156,7 +170,13 @@ export interface ExpensePayload {
   tipCents: number;
   totalCents: number;
   splitMode: SplitMode;
-  items: { name: string; amountCents: number; participantIds: number[]; quantity?: number; participantQuantities?: Record<number, number> }[];
+  items: {
+    name: string;
+    amountCents: number;
+    participantIds: number[];
+    quantity?: number;
+    participantQuantities?: Record<number, number>;
+  }[];
   shares: {
     participantId?: number;
     groupId?: number;
@@ -181,6 +201,7 @@ async function insertExpenseShares(
 ) {
   if (shares.length === 0) return;
   for (const s of shares) {
+    assertSafeCents(s.weightValue, "Share weight");
     if (s.participantId != null && !validParticipantIds.has(s.participantId)) {
       throw new Error("Share references a participant that is not in this event");
     }
@@ -207,6 +228,13 @@ export async function saveExpenseAction(token: string, payload: ExpensePayload) 
   if (!SPLIT_MODES.includes(payload.splitMode)) throw new Error("Invalid split mode");
   const validIds = new Set(detail.participants.map((p) => p.id));
   if (!validIds.has(payload.payerId)) throw new Error("Payer is not a participant of this event");
+
+  assertSafeCents(payload.totalCents, "Total");
+  assertSafeCents(payload.taxCents, "Tax");
+  assertSafeCents(payload.tipCents, "Tip");
+  for (const item of payload.items) {
+    assertSafeCents(item.amountCents, "Item amount");
+  }
 
   // Validate shares
   if (payload.shares.length > 0) {
@@ -279,6 +307,13 @@ export async function updateExpenseAction(
   if (!existing) throw new Error("Expense not found");
   const validIds = new Set(detail.participants.map((p) => p.id));
   if (!validIds.has(payload.payerId)) throw new Error("Payer is not a participant of this event");
+
+  assertSafeCents(payload.totalCents, "Total");
+  assertSafeCents(payload.taxCents, "Tax");
+  assertSafeCents(payload.tipCents, "Tip");
+  for (const item of payload.items) {
+    assertSafeCents(item.amountCents, "Item amount");
+  }
 
   // Validate shares
   if (payload.shares.length > 0) {
@@ -394,9 +429,7 @@ export async function requestClaimAction(formData: FormData) {
     redirect(`/e/${token}?claimError=${encodeURIComponent(EVENT_ERRORS.cannotClaim)}`);
   }
   if (await findLinkedParticipant(detail.event.id, user.id)) {
-    redirect(
-      `/e/${token}?claimError=${encodeURIComponent(EVENT_ERRORS.alreadyParticipate)}`,
-    );
+    redirect(`/e/${token}?claimError=${encodeURIComponent(EVENT_ERRORS.alreadyParticipate)}`);
   }
 
   try {
@@ -421,20 +454,24 @@ export async function decideClaimAction(formData: FormData) {
 
   const ownerId = await getEventOwnerId(detail.event.id);
   if (ownerId !== user.id) {
-    redirect(
-      `/e/${token}?claimError=${encodeURIComponent(EVENT_ERRORS.onlyOwnerCanDecideClaims)}`,
-    );
+    redirect(`/e/${token}?claimError=${encodeURIComponent(EVENT_ERRORS.onlyOwnerCanDecideClaims)}`);
   }
 
   const [claim] = await db
-    .select({ id: participantClaims.id, participantId: participantClaims.participantId, requesterUserId: participantClaims.requesterUserId })
+    .select({
+      id: participantClaims.id,
+      participantId: participantClaims.participantId,
+      requesterUserId: participantClaims.requesterUserId,
+    })
     .from(participantClaims)
     .innerJoin(participants, eq(participantClaims.participantId, participants.id))
-    .where(and(
-      eq(participantClaims.id, claimId),
-      eq(participantClaims.status, "pending"),
-      eq(participants.eventId, detail.event.id),
-    ));
+    .where(
+      and(
+        eq(participantClaims.id, claimId),
+        eq(participantClaims.status, "pending"),
+        eq(participants.eventId, detail.event.id),
+      ),
+    );
   if (!claim) redirect(`/e/${token}`);
 
   if (decision === "approve") {
