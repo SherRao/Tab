@@ -128,24 +128,28 @@ function resolveShares(
   const result: { participantId: number; consumedCents: number }[] = [];
 
   if (participantAmounts.size > 0) {
-    // Assign exact amounts
-    let amountTotal = 0;
-    for (const [pid, cents] of participantAmounts) {
-      result.push({ participantId: pid, consumedCents: cents });
-      amountTotal += cents;
-    }
-    // Distribute remainder proportionally among weight-based participants
+    const amountPids = Array.from(participantAmounts.keys());
+    const amounts = amountPids.map((id) => participantAmounts.get(id)!);
+    const amountTotal = amounts.reduce((a, b) => a + b, 0);
     const remainder = totalCents - amountTotal;
-    if (remainder > 0 && participantWeights.size > 0) {
-      const pids = Array.from(participantWeights.keys());
-      const weights = pids.map((id) => participantWeights.get(id)!);
-      const alloc = allocateByWeights(remainder, weights);
-      for (let i = 0; i < pids.length; i++) {
-        result.push({ participantId: pids[i], consumedCents: alloc[i] });
+
+    if (remainder < 0) {
+      // Amounts exceed the total: scale them down proportionally so the split
+      // still sums to the total. Weight participants consume nothing (C3).
+      const scaled = allocateByWeights(totalCents, amounts);
+      amountPids.forEach((id, i) => result.push({ participantId: id, consumedCents: scaled[i] }));
+    } else {
+      amountPids.forEach((id, i) => result.push({ participantId: id, consumedCents: amounts[i] }));
+      if (remainder > 0 && participantWeights.size > 0) {
+        // Distribute the remainder proportionally among weight participants.
+        const pids = Array.from(participantWeights.keys());
+        const weights = pids.map((id) => participantWeights.get(id)!);
+        const alloc = allocateByWeights(remainder, weights);
+        pids.forEach((id, i) => result.push({ participantId: id, consumedCents: alloc[i] }));
+      } else if (remainder > 0) {
+        // No weights to take the remainder — leave it on the last amount share.
+        result[result.length - 1].consumedCents += remainder;
       }
-    } else if (remainder !== 0 && participantWeights.size === 0) {
-      // All amount shares - absorb rounding into last
-      result[result.length - 1].consumedCents += remainder;
     }
   } else {
     // Pure proportional
