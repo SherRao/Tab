@@ -551,4 +551,60 @@ describe("computeParticipantBreakdown parity", () => {
     expect(bAlice.netCents).toBe(nets.get(1));
     expect(bBob.netCents).toBe(nets.get(2));
   });
+
+  it("extras shares are the exact allocation, not float ratios, so parts sum to total (C5)", () => {
+    // Uneven subtotals plus a tax that largest-remainder rounds up for Alice:
+    // float-ratio rounding gives her 548, the exact allocator 549.
+    const expenses: LedgerExpense[] = [
+      {
+        payerId: 1,
+        taxCents: 1234,
+        tipCents: 0,
+        totalCents: 11234,
+        splitMode: "itemized",
+        lineItems: [
+          { id: 10, name: "A", amountCents: 4444, participantIds: [1] },
+          { id: 11, name: "B", amountCents: 3333, participantIds: [2] },
+          { id: 12, name: "C", amountCents: 2223, participantIds: [3] },
+        ],
+        shares: [
+          { participantId: 1, lineItemId: 10, weightType: "equal", weightValue: 10000 },
+          { participantId: 2, lineItemId: 11, weightType: "equal", weightValue: 10000 },
+          { participantId: 3, lineItemId: 12, weightType: "equal", weightValue: 10000 },
+        ],
+      },
+    ];
+
+    const bAlice = computeParticipantBreakdown([alice, bob, carol], expenses, 1);
+    const itemSum = bAlice.items.reduce((s, i) => s + i.shareCents, 0);
+    expect(bAlice.taxShareCents).toBe(549);
+    expect(
+      itemSum + bAlice.taxShareCents + bAlice.tipShareCents + bAlice.otherExtrasShareCents,
+    ).toBe(bAlice.totalConsumedCents);
+  });
+
+  it("even-mode breakdown no longer double-counts tax/tip (C5)", () => {
+    const expenses: LedgerExpense[] = [
+      {
+        payerId: 1,
+        taxCents: 500,
+        tipCents: 300,
+        totalCents: 9800,
+        splitMode: "even",
+        lineItems: [],
+        shares: [
+          { participantId: 1, weightType: "percent", weightValue: 6000 },
+          { participantId: 2, weightType: "percent", weightValue: 4000 },
+        ],
+      },
+    ];
+
+    const bAlice = computeParticipantBreakdown([alice, bob, carol], expenses, 1);
+    const itemSum = bAlice.items.reduce((s, i) => s + i.shareCents, 0);
+    // The whole 60% share is a single "Split" row; tax/tip are folded into it.
+    expect(itemSum).toBe(bAlice.totalConsumedCents);
+    expect(
+      itemSum + bAlice.taxShareCents + bAlice.tipShareCents + bAlice.otherExtrasShareCents,
+    ).toBe(bAlice.totalConsumedCents);
+  });
 });
