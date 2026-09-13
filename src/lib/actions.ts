@@ -35,6 +35,7 @@ import {
   type AddParticipantInput,
   type CreateParticipantEntry,
 } from "./participants";
+import { DELETE_ERROR_ONLY_OWNER, EVENT_ERRORS } from "./event-errors";
 
 export async function createEventAction(formData: FormData) {
   const user = await requireSession("/");
@@ -367,7 +368,7 @@ export async function deleteEventAction(token: string) {
 
   const viewer = await getSessionUser();
   if (viewer == null || detail.event.ownerId !== viewer.id) {
-    redirect(`/e/${token}?deleteError=only_owner`);
+    redirect(`/e/${token}?deleteError=${DELETE_ERROR_ONLY_OWNER}`);
   }
 
   // expenses.payerId is ON DELETE RESTRICT (src/db/schema.ts), so dependents
@@ -390,11 +391,11 @@ export async function requestClaimAction(formData: FormData) {
 
   const participant = detail.participants.find((p) => p.id === participantId);
   if (!participant || participant.userId != null) {
-    redirect(`/e/${token}?claimError=${encodeURIComponent("That participant cannot be claimed")}`);
+    redirect(`/e/${token}?claimError=${encodeURIComponent(EVENT_ERRORS.cannotClaim)}`);
   }
   if (await findLinkedParticipant(detail.event.id, user.id)) {
     redirect(
-      `/e/${token}?claimError=${encodeURIComponent("You already participate in this event")}`,
+      `/e/${token}?claimError=${encodeURIComponent(EVENT_ERRORS.alreadyParticipate)}`,
     );
   }
 
@@ -421,7 +422,7 @@ export async function decideClaimAction(formData: FormData) {
   const ownerId = await getEventOwnerId(detail.event.id);
   if (ownerId !== user.id) {
     redirect(
-      `/e/${token}?claimError=${encodeURIComponent("Only the event owner can decide claims")}`,
+      `/e/${token}?claimError=${encodeURIComponent(EVENT_ERRORS.onlyOwnerCanDecideClaims)}`,
     );
   }
 
