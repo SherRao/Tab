@@ -30,18 +30,10 @@ import { GroupManager } from "@/components/event/group-manager";
 import { UnassignedWarnings } from "@/components/event/unassigned-warnings";
 import { ErrorNote } from "@/components/ui/error-note";
 import { SectionHeading } from "@/components/ui/section-heading";
+import { resolveEventError } from "@/lib/event-errors";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Event" };
-
-function getErrorMessage(
-  error?: string | undefined,
-): string | undefined {
-  if (!error) return undefined;
-  if (error.includes("only_owner")) return "Only the event owner can view this page";
-  if (error.includes("delete")) return "This event has been deleted";
-  return error;
-}
 
 export default async function EventPage({
   params,
@@ -53,12 +45,14 @@ export default async function EventPage({
   const [{ token }, { addError, claimError, deleteError }] = await Promise.all([params, searchParams]);
   const detail = await getEventByToken(token);
   if (!detail) {
-    const error = getErrorMessage(deleteError);
+    const error = resolveEventError(undefined, undefined, deleteError);
     if (error) {
       return <ErrorNote variant="page">{error}</ErrorNote>;
     }
     notFound();
   }
+
+  const errorMessage = resolveEventError(addError, claimError, deleteError);
 
   const viewer = await getSessionUser();
   const isOwner = viewer != null && detail.event.ownerId === viewer.id;
@@ -182,9 +176,7 @@ export default async function EventPage({
         grandTotalCents={grandTotal}
       />
 
-      {(addError || claimError || deleteError) && (
-        <ErrorNote variant="page">{addError ?? claimError ?? deleteError}</ErrorNote>
-      )}
+      {errorMessage && <ErrorNote variant="page">{errorMessage}</ErrorNote>}
 
       <BalanceList
         token={token}
