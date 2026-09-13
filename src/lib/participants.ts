@@ -1,4 +1,4 @@
-import { and, eq, ne, or, sql } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { events, participants, users } from "@/db/schema";
 import { EVENT_ERRORS } from "./event-errors";
@@ -154,13 +154,4 @@ export async function getEventOwnerId(eventId: number): Promise<number | null> {
     .from(events)
     .where(eq(events.id, eventId));
   return event?.ownerId ?? null;
-}
-
-/** Accounts already backing a participant of this event — powers "already added". */
-export async function linkedUserIdsForEvent(eventId: number): Promise<Set<number>> {
-  const rows = await db
-    .select({ userId: participants.userId })
-    .from(participants)
-    .where(and(eq(participants.eventId, eventId), ne(participants.userId, sql`null`)));
-  return new Set(rows.map((r) => r.userId).filter((id): id is number => id != null));
 }
