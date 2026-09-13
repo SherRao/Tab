@@ -1,6 +1,7 @@
 import { and, eq, ne, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { events, participants, users } from "@/db/schema";
+import { EVENT_ERRORS } from "./event-errors";
 
 export type ParticipantRow = typeof participants.$inferSelect;
 
@@ -64,9 +65,9 @@ export async function addParticipant(
 ): Promise<ParticipantRow> {
   if (input.mode === "account") {
     const [user] = await db.select().from(users).where(eq(users.id, input.userId));
-    if (!user) throw new ParticipantError("Account not found");
+    if (!user) throw new ParticipantError(EVENT_ERRORS.accountNotFound);
     const existing = await findLinkedParticipant(eventId, user.id);
-    if (existing) throw new ParticipantError("That account is already in this event");
+    if (existing) throw new ParticipantError(EVENT_ERRORS.accountAlreadyInEvent);
     const [row] = await db
       .insert(participants)
       .values({ eventId, name: user.displayName, userId: user.id })
@@ -75,13 +76,13 @@ export async function addParticipant(
   }
 
   const name = input.name.trim();
-  if (!name) throw new ParticipantError("Name is required");
+  if (!name) throw new ParticipantError(EVENT_ERRORS.nameRequired);
 
   if (input.mode === "guest") {
     const email = input.email?.trim().toLowerCase() || undefined;
     if (email) {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        throw new ParticipantError("Enter a valid email address");
+        throw new ParticipantError(EVENT_ERRORS.invalidEmail);
       }
       await assertEmailFreeInEvent(eventId, email);
     }
@@ -94,7 +95,7 @@ export async function addParticipant(
 
   const email = input.email.trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    throw new ParticipantError("Enter a valid email address");
+    throw new ParticipantError(EVENT_ERRORS.invalidEmail);
   }
   await assertEmailFreeInEvent(eventId, email);
   const [row] = await db
@@ -117,7 +118,7 @@ async function assertEmailFreeInEvent(eventId: number, email: string) {
     .select({ id: participants.id })
     .from(participants)
     .where(and(eq(participants.eventId, eventId), eq(participants.email, email)));
-  if (dupe) throw new ParticipantError("That email is already invited to this event");
+  if (dupe) throw new ParticipantError(EVENT_ERRORS.emailAlreadyInvited);
 }
 
 /**
@@ -132,14 +133,14 @@ export async function linkAccountToParticipant(
     .select()
     .from(participants)
     .where(eq(participants.id, participantId));
-  if (!participant) throw new ParticipantError("Participant not found");
+  if (!participant) throw new ParticipantError(EVENT_ERRORS.participantNotFound);
   if (participant.userId === userId) return;
 
   if (participant.userId != null) {
-    throw new ParticipantError("That participant is already linked to an account");
+    throw new ParticipantError(EVENT_ERRORS.alreadyLinked);
   }
   const existing = await findLinkedParticipant(participant.eventId, userId);
-  if (existing) throw new ParticipantError("You already participate in this event");
+  if (existing) throw new ParticipantError(EVENT_ERRORS.alreadyParticipate);
 
   await db
     .update(participants)

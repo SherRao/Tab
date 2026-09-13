@@ -30,46 +30,10 @@ import { GroupManager } from "@/components/event/group-manager";
 import { UnassignedWarnings } from "@/components/event/unassigned-warnings";
 import { ErrorNote } from "@/components/ui/error-note";
 import { SectionHeading } from "@/components/ui/section-heading";
+import { resolveEventError } from "@/lib/event-errors";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Event" };
-
-// Server actions redirect back to this page with one of these known errors.
-// Anything else in the query string is attacker-supplied and must not be shown,
-// so we only ever render values from these sets — everything else is ignored.
-//
-// Keep in sync with the redirect sites in src/lib/actions.ts and the
-// ParticipantError messages thrown in src/lib/participants.ts.
-const KNOWN_EVENT_ERRORS = new Set<string>([
-  // ParticipantError messages (addError / claimError)
-  "Account not found",
-  "That account is already in this event",
-  "Name is required",
-  "Enter a valid email address",
-  "That email is already invited to this event",
-  "Participant not found",
-  "That participant is already linked to an account",
-  "You already participate in this event",
-  // Fixed claimError strings
-  "That participant cannot be claimed",
-  "Only the event owner can decide claims",
-]);
-
-// deleteError carries a short code rather than a message.
-const DELETE_ERROR_MESSAGES: Record<string, string> = {
-  only_owner: "Only the event owner can delete this event",
-};
-
-function resolveEventError(
-  addError?: string,
-  claimError?: string,
-  deleteError?: string,
-): string | undefined {
-  const message = addError ?? claimError;
-  if (message && KNOWN_EVENT_ERRORS.has(message)) return message;
-  if (deleteError && deleteError in DELETE_ERROR_MESSAGES) return DELETE_ERROR_MESSAGES[deleteError];
-  return undefined;
-}
 
 export default async function EventPage({
   params,
