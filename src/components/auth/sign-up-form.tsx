@@ -8,11 +8,9 @@ const ERRORS: Record<string, string> = {
 };
 
 export function SignUpForm({
-  token,
   error,
   next,
 }: {
-  token: string;
   error?: string;
   next?: string;
 }) {
@@ -21,7 +19,6 @@ export function SignUpForm({
       {error && (
         <ErrorNote variant="form">{ERRORS[error] ?? "Something went wrong."}</ErrorNote>
       )}
-      <input type="hidden" name="token" value={token} />
       <input type="hidden" name="next" value={next ?? ""} />
       <Field label="Username" htmlFor="username">
         <input

@@ -7,10 +7,12 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import {
   appBaseUrl,
+  clearSignupToken,
   consumeLoginToken,
   createLoginToken,
   createSession,
   loginTokenRateOk,
+  readSignupToken,
   safeNextPath,
   destroySession,
   findUserByEmail,
@@ -57,26 +59,24 @@ export async function requestSignInAction(formData: FormData) {
  * and honors any invite binding on the token.
  */
 export async function completeSignUpAction(formData: FormData): Promise<void> {
-  const token = String(formData.get("token") ?? "");
+  // The token rides in an httpOnly cookie set at the verify step, not the URL (S10).
+  const token = (await readSignupToken()) ?? "";
   const username = String(formData.get("username") ?? "")
     .trim()
     .toLowerCase();
   const displayName = String(formData.get("displayName") ?? "").trim();
   const next = safeNextPath(String(formData.get("next") ?? ""));
 
+  // Validation redirects keep the token in its cookie, so the person can retry
+  // with a corrected field without requesting a new link.
+  const retryUrl = (error: string) =>
+    `/auth/signup?error=${error}` + (next ? `&next=${encodeURIComponent(next)}` : "");
+
   if (!/^[a-z0-9_]{2,24}$/.test(username)) {
-    redirect(
-      "/auth/signup?error=username&token=" +
-        encodeURIComponent(token) +
-        (next ? `&next=${encodeURIComponent(next)}` : ""),
-    );
+    redirect(retryUrl("username"));
   }
   if (!displayName || displayName.length > 60) {
-    redirect(
-      "/auth/signup?error=name&token=" +
-        encodeURIComponent(token) +
-        (next ? `&next=${encodeURIComponent(next)}` : ""),
-    );
+    redirect(retryUrl("name"));
   }
 
   // Check username availability before consuming the token so the person can
@@ -86,14 +86,11 @@ export async function completeSignUpAction(formData: FormData): Promise<void> {
     .from(users)
     .where(eq(users.username, username));
   if (nameTaken) {
-    redirect(
-      "/auth/signup?error=username&token=" +
-        encodeURIComponent(token) +
-        (next ? `&next=${encodeURIComponent(next)}` : ""),
-    );
+    redirect(retryUrl("username"));
   }
 
   const consumed = await consumeLoginToken(token);
+  await clearSignupToken();
   if (!consumed) {
     redirect("/signin?error=expired");
   }

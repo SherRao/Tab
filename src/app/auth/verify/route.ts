@@ -9,6 +9,7 @@ import {
   findUserByEmail,
   peekLoginToken,
   safeNextPath,
+  setSignupToken,
 } from "@/lib/auth";
 import { linkAccountToParticipant, ParticipantError } from "@/lib/participants";
 
@@ -58,10 +59,12 @@ export async function GET(request: Request): Promise<Response> {
     redirect(target);
   }
 
-  // No account yet: send to signup completion; the token stays unconsumed
-  // so the form submission can consume it atomically.
+  // No account yet: send to signup completion. The token stays unconsumed so
+  // the form submission can consume it atomically, and it rides in a
+  // short-lived httpOnly cookie rather than the URL — so it never leaks (with
+  // the email) via browser history or a Referer header (S10).
+  await setSignupToken(token);
   const signupUrl = new URL("/auth/signup", url.origin);
-  signupUrl.searchParams.set("token", token);
   if (next) signupUrl.searchParams.set("next", next);
   redirect(signupUrl.toString());
 }

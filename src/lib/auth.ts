@@ -6,6 +6,14 @@ import { db } from "@/db";
 import { authTokens, sessions, users } from "@/db/schema";
 
 export const SESSION_COOKIE = "tab_session";
+/**
+ * Holds the login token during signup completion. Scoped to the signup path so
+ * the token stays out of the URL — where it would otherwise leak (with the
+ * email) through browser history or a Referer header while still being a
+ * working credential. See S10.
+ */
+export const SIGNUP_TOKEN_COOKIE = "tab_signup";
+const SIGNUP_TOKEN_COOKIE_PATH = "/auth/signup";
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const LOGIN_TOKEN_TTL_MS = 15 * 60 * 1000;
 /** Renew the session row once less than this much lifetime remains. */
@@ -115,6 +123,28 @@ export async function consumeLoginToken(token: string): Promise<ConsumedToken | 
     .returning();
   if (!row) return null;
   return { email: row.email, participantId: row.participantId };
+}
+
+/** Stash the login token for signup completion, keeping it out of the URL. */
+export async function setSignupToken(token: string): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.set(SIGNUP_TOKEN_COOKIE, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: SIGNUP_TOKEN_COOKIE_PATH,
+    maxAge: LOGIN_TOKEN_TTL_MS / 1000,
+  });
+}
+
+export async function readSignupToken(): Promise<string | null> {
+  const cookieStore = await cookies();
+  return cookieStore.get(SIGNUP_TOKEN_COOKIE)?.value ?? null;
+}
+
+export async function clearSignupToken(): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.set(SIGNUP_TOKEN_COOKIE, "", { path: SIGNUP_TOKEN_COOKIE_PATH, maxAge: 0 });
 }
 
 export async function createSession(userId: number): Promise<void> {
