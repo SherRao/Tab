@@ -44,6 +44,22 @@ function assertSafeCents(value: number, label: string) {
   }
 }
 
+// Upper bounds on user input so a single request can't persist unbounded data (C11).
+const MAX_PARTICIPANTS = 100;
+const MAX_NAME_LEN = 100;
+const MAX_EMAIL_LEN = 254; // RFC 5321 address limit
+const MAX_DESCRIPTION_LEN = 200;
+const MAX_LINE_ITEMS = 200;
+
+/** Reject an expense payload whose text/array sizes exceed the C11 caps. */
+function assertPayloadWithinLimits(payload: ExpensePayload) {
+  if (payload.description.length > MAX_DESCRIPTION_LEN) throw new Error("Description is too long");
+  if (payload.items.length > MAX_LINE_ITEMS) throw new Error("Too many line items");
+  for (const item of payload.items) {
+    if (item.name.length > MAX_NAME_LEN) throw new Error("Line item name is too long");
+  }
+}
+
 export async function createEventAction(formData: FormData) {
   const user = await requireSession("/");
   const name = String(formData.get("name") ?? "").trim();
@@ -73,7 +89,10 @@ export async function createEventAction(formData: FormData) {
       .map((n) => ({ mode: "guest" as const, name: n }));
   }
 
-  if (!name || entries.length < 1) {
+  const oversized = entries.some(
+    (e) => (e.name?.length ?? 0) > MAX_NAME_LEN || (e.email?.length ?? 0) > MAX_EMAIL_LEN,
+  );
+  if (!name || name.length > MAX_NAME_LEN || entries.length < 1 || entries.length > MAX_PARTICIPANTS || oversized) {
     redirect("/create?error=1");
   }
 
@@ -234,6 +253,7 @@ export async function saveExpenseAction(token: string, payload: ExpensePayload) 
   assertSafeCents(payload.totalCents, "Total");
   assertSafeCents(payload.taxCents, "Tax");
   assertSafeCents(payload.tipCents, "Tip");
+  assertPayloadWithinLimits(payload);
   for (const item of payload.items) {
     assertSafeCents(item.amountCents, "Item amount");
   }
@@ -318,6 +338,7 @@ export async function updateExpenseAction(
   assertSafeCents(payload.totalCents, "Total");
   assertSafeCents(payload.taxCents, "Tax");
   assertSafeCents(payload.tipCents, "Tip");
+  assertPayloadWithinLimits(payload);
   for (const item of payload.items) {
     assertSafeCents(item.amountCents, "Item amount");
   }
