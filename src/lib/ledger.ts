@@ -21,6 +21,7 @@ export interface LedgerShare {
 }
 
 export interface LedgerExpense {
+  id?: number;
   payerId: number;
   description?: string;
   taxCents: number;
@@ -425,7 +426,7 @@ export function computeParticipantBreakdown(
           const custom = totalShares.some((s) => s.weightType !== "equal");
           if (myShare && myShare.consumedCents > 0) {
             items.push({
-              expenseId: 0,
+              expenseId: expense.id ?? 0,
               expenseDescription: expense.description,
               splitLabel: `As a total · ${custom ? "Custom" : "Equal"}`,
               itemName: expense.description || "Split",
@@ -439,7 +440,7 @@ export function computeParticipantBreakdown(
           const idx = allIds.indexOf(participantId);
           if (idx >= 0) {
             items.push({
-              expenseId: 0,
+              expenseId: expense.id ?? 0,
               expenseDescription: expense.description,
               splitLabel: "As a total · Equal",
               itemName: expense.description || "Split",
@@ -473,7 +474,7 @@ export function computeParticipantBreakdown(
           const myShare = resolved.find((r) => r.participantId === participantId);
           if (myShare && myShare.consumedCents > 0) {
             items.push({
-              expenseId: 0,
+              expenseId: expense.id ?? 0,
               expenseDescription: expense.description,
               splitLabel: "By items",
               itemName: lineItem.name,
@@ -494,7 +495,7 @@ export function computeParticipantBreakdown(
         const idx = allIds.indexOf(participantId);
         if (idx >= 0) {
           items.push({
-            expenseId: 0,
+            expenseId: expense.id ?? 0,
             expenseDescription: expense.description,
             splitLabel: "As a total · Equal",
             itemName: expense.description || "Split",
@@ -510,7 +511,7 @@ export function computeParticipantBreakdown(
           const idx = assignees.indexOf(participantId);
           if (idx >= 0) {
             items.push({
-              expenseId: 0,
+              expenseId: expense.id ?? 0,
               expenseDescription: expense.description,
               splitLabel: "By items",
               itemName: item.name,
