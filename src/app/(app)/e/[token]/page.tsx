@@ -69,6 +69,7 @@ export default async function EventPage({
   const groupMemberLookup = (groupId: number) => groupMembersById.get(groupId) ?? [];
 
   const ledgerExpenses: LedgerExpense[] = expenseRows.map(({ expense, items, shares }) => ({
+    id: expense.id,
     payerId: expense.payerId,
     description: expense.description ?? undefined,
     taxCents: expense.taxCents,
