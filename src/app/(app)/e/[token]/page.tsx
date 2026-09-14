@@ -31,6 +31,7 @@ import { UnassignedWarnings } from "@/components/event/unassigned-warnings";
 import { ErrorNote } from "@/components/ui/error-note";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { resolveEventError } from "@/lib/event-errors";
+import { unassignedItemWarnings } from "@/lib/warnings";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Event" };
@@ -93,11 +94,7 @@ export default async function EventPage({
   const transfers = simplifyDebts(nets);
   const nameOf = new Map(people.map((p) => [p.id, p.userDisplayName ?? p.name]));
   const grandTotal = expenseRows.reduce((sum, r) => sum + r.expense.totalCents, 0);
-  const warnings = expenseRows.flatMap(({ expense, items }) =>
-    items
-      .filter((i) => i.participantIds.length === 0)
-      .map((i) => `"${i.item.name}" in "${expense.description || "Untitled"}" has no assignees — split equally among everyone`),
-  );
+  const warnings = unassignedItemWarnings(expenseRows);
 
   const balancePeople: BalancePerson[] = people.map((p) => ({
     id: p.id,
