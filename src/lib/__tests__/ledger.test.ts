@@ -176,6 +176,31 @@ describe("computeNetBalances", () => {
     expect([...nets.values()].reduce((a, b) => a + b, 0)).toBe(0);
   });
 
+  it("amount shares exceeding the total are scaled down, not conjured (C3)", () => {
+    // Alice's $12 alone exceeds the $10 total; Bob has an equal (weight) share.
+    const nets = computeNetBalances(
+      [alice, bob],
+      [
+        {
+          payerId: 1,
+          taxCents: 0,
+          tipCents: 0,
+          totalCents: 1000,
+          splitMode: "even",
+          lineItems: [],
+          shares: [
+            { participantId: 1, weightType: "amount", weightValue: 1200 },
+            { participantId: 2, weightType: "equal", weightValue: 10000 },
+          ],
+        },
+      ],
+    );
+    // Alice scaled down to the full $10; Bob consumes nothing. Conserves.
+    expect(nets.get(1)).toBe(0);
+    expect(nets.get(2)).toBe(0);
+    expect([...nets.values()].reduce((a, b) => a + b, 0)).toBe(0);
+  });
+
   it("itemized shares: an unassigned line item is split across everyone and still sums to zero", () => {
     // item 10 ($20) is shared by both; item 11 ($10) has no shares -> unassigned.
     const nets = computeNetBalances(
