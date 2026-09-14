@@ -17,6 +17,6 @@ export function unassignedItemWarnings(rows: WarningExpenseRow[]): string[] {
     );
     return items
       .filter((i) => !assignedItemIds.has(i.item.id))
-      .map((i) => `"${i.item.name}" in "${expense.description || "Untitled"}" has no assignees`);
+      .map((i) => `"${i.item.name}" in "${expense.description || "Untitled"}" has no assignees — split equally among everyone`);
   });
 }

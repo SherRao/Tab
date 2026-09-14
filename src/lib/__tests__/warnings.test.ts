@@ -16,7 +16,7 @@ describe("unassignedItemWarnings", () => {
         shares: [],
       }),
     ]);
-    expect(w).toEqual(['"Fries" in "Dinner" has no assignees']);
+    expect(w).toEqual(['"Fries" in "Dinner" has no assignees — split equally among everyone']);
   });
 
   it("does not warn for an item that has an expense_shares row (C2)", () => {
@@ -48,6 +48,6 @@ describe("unassignedItemWarnings", () => {
         items: [{ item: { id: 9, name: "Mystery" } }],
       }),
     ]);
-    expect(w).toEqual(['"Mystery" in "Untitled" has no assignees']);
+    expect(w).toEqual(['"Mystery" in "Untitled" has no assignees — split equally among everyone']);
   });
 });
