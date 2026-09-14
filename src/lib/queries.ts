@@ -12,7 +12,7 @@ import {
   users,
 } from "@/db/schema";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
-import type { CreateParticipantEntry } from "./participants";
+import { addParticipant, toAddParticipantInput, type CreateParticipantEntry } from "./participants";
 
 export type ParticipantView = typeof participants.$inferSelect & {
   /** Account display name when linked; null otherwise. */
@@ -213,45 +213,13 @@ export async function createEventRecord(
     .values({ name, shareToken: nanoid(16), ownerId: ownerId ?? null })
     .returning();
 
-  const normalized: CreateParticipantEntry[] = entries.map((entry) =>
-    typeof entry === "string" ? { mode: "guest", name: entry } : entry,
-  );
+  // Same validation as the add-person flow: required names, email format,
+  // and no duplicate emails/accounts (C10).
   const created = [];
-  for (const entry of normalized) {
-    created.push(await addParticipantRecord(event.id, entry));
+  for (const entry of entries) {
+    const normalized: CreateParticipantEntry =
+      typeof entry === "string" ? { mode: "guest", name: entry } : entry;
+    created.push(await addParticipant(event.id, toAddParticipantInput(normalized)));
   }
   return { event, participants: created };
-}
-
-export async function addParticipantRecord(
-  eventId: number,
-  entry: string | CreateParticipantEntry,
-) {
-  const input: CreateParticipantEntry =
-    typeof entry === "string" ? { mode: "guest", name: entry } : entry;
-
-  if (input.mode === "account") {
-    const [row] = await db
-      .insert(participants)
-      .values({ eventId, name: input.name ?? "", userId: input.userId })
-      .returning();
-    return row;
-  }
-  if (input.mode === "invite") {
-    const [row] = await db
-      .insert(participants)
-      .values({
-        eventId,
-        name: input.name ?? "",
-        email: input.email?.trim().toLowerCase(),
-        invitedAt: new Date(),
-      })
-      .returning();
-    return row;
-  }
-  const [row] = await db
-    .insert(participants)
-    .values({ eventId, name: input.name ?? "", email: input.email?.trim().toLowerCase() ?? null })
-    .returning();
-  return row;
 }
