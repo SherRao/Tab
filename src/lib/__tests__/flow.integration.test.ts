@@ -12,6 +12,7 @@ process.env.DATABASE_URL = `file:${path.join(os.tmpdir(), `flow-test-${Date.now(
 let queries: typeof import("@/lib/queries");
 let actions: typeof import("@/lib/actions");
 let ledger: typeof import("@/lib/ledger");
+let participants: typeof import("@/lib/participants");
 let ownerId: number;
 
 // Sign-in as a real seeded account for all action-level gating.
@@ -69,6 +70,7 @@ beforeAll(async () => {
   queries = await import("@/lib/queries");
   actions = await import("@/lib/actions");
   ledger = await import("@/lib/ledger");
+  participants = await import("@/lib/participants");
 
   const schema = await import("@/db/schema");
   const [user] = await dbModule.db
@@ -176,7 +178,7 @@ describe("full event flow", () => {
     expenseRows = await queries.getExpenses(detail!.event.id);
     expect(expenseRows).toHaveLength(2);
 
-    await queries.addParticipantRecord(detail!.event.id, "Dave");
+    await participants.addParticipant(detail!.event.id, { mode: "guest", name: "Dave" });
     detail = await queries.getEventByToken(event.shareToken);
     const dave = detail!.participants.find((p) => p.name === "Dave")!;
     expenseRows = await queries.getExpenses(detail!.event.id);
