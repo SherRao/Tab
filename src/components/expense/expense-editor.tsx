@@ -465,7 +465,8 @@ export default function ExpenseEditor({
         {splitMode === "itemized" && computed.unassigned > 0 && (
           <p className="font-mono text-xs text-amber-700">
             ! {computed.unassigned} line item{computed.unassigned > 1 ? "s" : ""} ha
-            {computed.unassigned > 1 ? "ve" : "s"} no assignees yet.
+            {computed.unassigned > 1 ? "ve" : "s"} no assignees — split equally
+            among everyone.
           </p>
         )}
       </div>

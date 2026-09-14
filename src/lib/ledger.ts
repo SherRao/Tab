@@ -203,7 +203,7 @@ function computeConsumption(
           (s) => s.lineItemId != null && s.lineItemId !== undefined,
         );
 
-        // Group by lineItemId
+        // Group shares by line item.
         const sharesByLine = new Map<number, LedgerShare[]>();
         for (const s of lineShares) {
           const lid = s.lineItemId!;
@@ -212,17 +212,14 @@ function computeConsumption(
           sharesByLine.set(lid, arr);
         }
 
-        // Compute per-line-item subtotals
+        // Split every line item over its own shares. An item with no shares of
+        // its own is unassigned; resolveShares then falls back to an even split
+        // across all participants, so the item's money is still consumed and
+        // the receipt sums to its total (C1) rather than silently vanishing.
         const subtotal = new Map<number, number>(allIds.map((id) => [id, 0]));
-        const lineItemAmounts = new Map<number, number>();
-
-        for (const [lineItemId, shares] of sharesByLine) {
-          // Find matching line item by ID
-          const lineItem = expense.lineItems.find((li) => li.id === lineItemId);
-          const amount = lineItem?.amountCents ?? 0;
-          lineItemAmounts.set(lineItemId, amount);
-
-          const resolved = resolveShares(shares, amount, allIds, groupMemberLookup);
+        for (const lineItem of expense.lineItems) {
+          const itemShares = lineItem.id != null ? (sharesByLine.get(lineItem.id) ?? []) : [];
+          const resolved = resolveShares(itemShares, lineItem.amountCents, allIds, groupMemberLookup);
           for (const r of resolved) {
             subtotal.set(r.participantId, (subtotal.get(r.participantId) ?? 0) + r.consumedCents);
           }
@@ -439,10 +436,10 @@ export function computeParticipantBreakdown(
         }
 
         const subtotal = new Map<number, number>(allIds.map((id) => [id, 0]));
-        for (const [lineItemId, shares] of sharesByLine) {
-          const lineItem = expense.lineItems.find((li) => li.id === lineItemId);
-          const amount = lineItem?.amountCents ?? 0;
-          const resolved = resolveShares(shares, amount, allIds, groupMemberLookup);
+        for (const lineItem of expense.lineItems) {
+          // Mirrors computeConsumption: unassigned items split across everyone (C1).
+          const itemShares = lineItem.id != null ? (sharesByLine.get(lineItem.id) ?? []) : [];
+          const resolved = resolveShares(itemShares, lineItem.amountCents, allIds, groupMemberLookup);
           const myShare = resolved.find((r) => r.participantId === participantId);
           if (myShare && myShare.consumedCents > 0) {
             subtotal.set(participantId, (subtotal.get(participantId) ?? 0) + myShare.consumedCents);
@@ -450,8 +447,8 @@ export function computeParticipantBreakdown(
               expenseId: 0,
               expenseDescription: expense.description,
               splitLabel: "By items",
-              itemName: lineItem?.name ?? "Item",
-              itemAmountCents: amount,
+              itemName: lineItem.name,
+              itemAmountCents: lineItem.amountCents,
               shareCents: myShare.consumedCents,
             });
           }

@@ -96,7 +96,7 @@ export default async function EventPage({
   const warnings = expenseRows.flatMap(({ expense, items }) =>
     items
       .filter((i) => i.participantIds.length === 0)
-      .map((i) => `"${i.item.name}" in "${expense.description || "Untitled"}" has no assignees`),
+      .map((i) => `"${i.item.name}" in "${expense.description || "Untitled"}" has no assignees — split equally among everyone`),
   );
 
   const balancePeople: BalancePerson[] = people.map((p) => ({
