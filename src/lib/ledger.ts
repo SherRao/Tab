@@ -161,7 +161,14 @@ function resolveShares(
     }
   }
 
-  return result;
+  // Aggregate by participant: someone reachable via both an amount and a weight
+  // share appears twice otherwise, and the breakdown's find() would see only the
+  // first row (C4).
+  const byId = new Map<number, number>();
+  for (const r of result) {
+    byId.set(r.participantId, (byId.get(r.participantId) ?? 0) + r.consumedCents);
+  }
+  return Array.from(byId, ([participantId, consumedCents]) => ({ participantId, consumedCents }));
 }
 
 interface Consumption {
