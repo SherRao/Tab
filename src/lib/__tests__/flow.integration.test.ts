@@ -384,10 +384,12 @@ describe("full event flow", () => {
         .filter((s) => s.lineItemId == null)
         .map((s) => [s.participantId, s.weightType, s.weightValue])
         .sort(),
-    ).toEqual([
-      [A, "percent", 7000],
-      [B, "percent", 3000],
-    ].sort());
+    ).toEqual(
+      [
+        [A, "percent", 7000],
+        [B, "percent", 3000],
+      ].sort(),
+    );
 
     const nets = toLedger(detail!, [after]);
     expect(nets.get(A)).toBe(3000);
@@ -428,5 +430,38 @@ describe("full event flow", () => {
     const current = await netsFor("Equal Item Shares", true);
     expect(current).toEqual(legacy);
     expect(current.reduce((a, b) => a! + b!, 0)).toBe(0);
+  });
+
+  it("rejects non-integer or runaway money amounts before anything is written (C6)", async () => {
+    const { event } = await queries.createEventRecord("C6", ["Alice", "Bob"]);
+    const detail = await queries.getEventByToken(event.shareToken);
+    const [A] = detail!.participants.map((p) => p.id);
+    const base = {
+      payerId: A,
+      description: "Rejected",
+      taxCents: 0,
+      tipCents: 0,
+      splitMode: "even" as const,
+      items: [] as { name: string; amountCents: number; participantIds: number[] }[],
+      shares: [{ participantId: A, weightType: "equal" as const, weightValue: 10000 }],
+    };
+
+    await expect(
+      actions.saveExpenseAction(event.shareToken, { ...base, totalCents: 1.5 }),
+    ).rejects.toThrow(/whole number of cents/);
+    await expect(
+      actions.saveExpenseAction(event.shareToken, { ...base, totalCents: 100_000_001 }),
+    ).rejects.toThrow(/whole number of cents/);
+    await expect(
+      actions.saveExpenseAction(event.shareToken, {
+        ...base,
+        totalCents: 1000,
+        splitMode: "itemized",
+        items: [{ name: "Float item", amountCents: 10.5, participantIds: [A] }],
+      }),
+    ).rejects.toThrow(/whole number of cents/);
+
+    const rows = await queries.getExpenses(event.id);
+    expect(rows).toHaveLength(0);
   });
 });
