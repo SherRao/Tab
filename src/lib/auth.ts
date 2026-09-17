@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { and, eq, gt, isNull, lt, or, sql } from "drizzle-orm";
@@ -171,7 +172,7 @@ export interface SessionUser {
   displayName: string;
 }
 
-export async function getSessionUser(): Promise<SessionUser | null> {
+export const getSessionUser = cache(async function getSessionUser(): Promise<SessionUser | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
   if (!token) return null;
@@ -191,7 +192,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   if (!row) return null;
 
   const remaining = row.expiresAt.getTime() - Date.now();
-  if (remaining < SESSION_TTL_MS - SESSION_RENEW_THRESHOLD_MS) {
+  if (remaining < SESSION_RENEW_THRESHOLD_MS) {
     await db
       .update(sessions)
       .set({ expiresAt: new Date(Date.now() + SESSION_TTL_MS) })
@@ -204,7 +205,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     username: row.username,
     displayName: row.displayName,
   };
-}
+});
 
 export async function requireSession(nextPath?: string): Promise<SessionUser> {
   const user = await getSessionUser();
