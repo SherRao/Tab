@@ -126,6 +126,21 @@ export async function getOwnedEvents(ownerId: number) {
     .orderBy(desc(events.createdAt));
 }
 
+export async function getParticipatingEvents(userId: number) {
+  return db
+    .select({
+      id: events.id,
+      name: events.name,
+      shareToken: events.shareToken,
+      createdAt: events.createdAt,
+      ownerId: events.ownerId,
+    })
+    .from(participants)
+    .innerJoin(events, eq(participants.eventId, events.id))
+    .where(eq(participants.userId, userId))
+    .orderBy(desc(events.createdAt));
+}
+
 export interface ExpenseWithItems {
   expense: typeof expenses.$inferSelect;
   items: {
