@@ -257,15 +257,23 @@ export default function ExpenseEditor({
     setSaving(true);
     setSaveError(null);
     try {
+      const totalCents = toCents(total);
+      if (Number.isNaN(totalCents) || totalCents <= 0) {
+        setSaveError("Enter a valid total.");
+        return;
+      }
       const filteredItems = items
         .filter((it) => it.name.trim() || it.amount.trim())
-        .map((it) => ({
-          name: it.name.trim() || "Item",
-          amountCents: toCents(it.amount) || 0,
-          participantIds: it.participantIds,
-          quantity: parseInt(it.quantity) || 0,
-          participantQuantities: it.participantQuantities,
-        }));
+        .map((it) => {
+          const cents = toCents(it.amount);
+          return {
+            name: it.name.trim() || "Item",
+            amountCents: Number.isNaN(cents) ? 0 : cents,
+            participantIds: it.participantIds,
+            quantity: parseInt(it.quantity) || 0,
+            participantQuantities: it.participantQuantities,
+          };
+        });
 
       const payloadShares = buildShares(filteredItems);
 
@@ -274,7 +282,7 @@ export default function ExpenseEditor({
         description,
         taxCents: toCents(tax) || 0,
         tipCents: toCents(tip) || 0,
-        totalCents: toCents(total) || 0,
+        totalCents,
         splitMode,
         items: filteredItems,
         shares: payloadShares,
