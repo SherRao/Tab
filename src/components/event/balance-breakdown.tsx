@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import { formatCents } from "@/lib/format";
 
 export interface BreakdownItemView {
+  expenseId: number;
   expenseDescription: string | undefined;
   splitLabel: string;
   itemName: string;
@@ -22,12 +23,11 @@ export interface ParticipantBreakdownView {
 }
 
 function BreakdownPanel({ breakdown }: { breakdown: ParticipantBreakdownView }) {
-  const groups = new Map<string | undefined, BreakdownItemView[]>();
+  const groups = new Map<number, BreakdownItemView[]>();
   for (const item of breakdown.items) {
-    const key = item.expenseDescription;
-    const arr = groups.get(key);
+    const arr = groups.get(item.expenseId);
     if (arr) arr.push(item);
-    else groups.set(key, [item]);
+    else groups.set(item.expenseId, [item]);
   }
   const groupEntries = Array.from(groups.entries());
 
@@ -36,8 +36,10 @@ function BreakdownPanel({ breakdown }: { breakdown: ParticipantBreakdownView }) 
       {groupEntries.length > 0 && (
         <div className="space-y-3">
           <div className="label-mono text-stone-400">Your share by receipt</div>
-          {groupEntries.map(([receipt, items]) => (
-            <div key={receipt ?? "__none__"}>
+          {groupEntries.map(([eid, items]) => {
+            const receipt = items[0]?.expenseDescription;
+            return (
+            <div key={eid}>
               <div className="flex items-baseline justify-between gap-2">
                 <span className="truncate text-xs font-semibold text-stone-600">
                   {receipt || "Receipt"}
@@ -71,7 +73,7 @@ function BreakdownPanel({ breakdown }: { breakdown: ParticipantBreakdownView }) 
                 ))}
               </ul>
             </div>
-          ))}
+          );})}
         </div>
       )}
       {(breakdown.taxShareCents > 0 ||
