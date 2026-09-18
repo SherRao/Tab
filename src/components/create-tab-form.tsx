@@ -5,6 +5,7 @@ import { CreateEventPeopleInput } from "@/components/people/create-event-people-
 import { ErrorNote } from "@/components/ui/error-note";
 
 const SUGGESTIONS = ["Dinner", "Weekend trip", "Apartment", "Bachelorette"];
+const STAMP_MIN_MS = 500;
 
 export function canContinueToPeople(name: string) {
   return Boolean(name.trim());
@@ -35,7 +36,7 @@ export function CreateTabForm({
     try {
       await Promise.all([
         action(new FormData(form)),
-        new Promise((r) => setTimeout(r, 500)),
+        new Promise((r) => setTimeout(r, STAMP_MIN_MS)),
       ]);
     } catch {
       setSubmitting(false);
