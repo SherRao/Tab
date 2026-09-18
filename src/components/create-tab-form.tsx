@@ -27,14 +27,16 @@ export function CreateTabForm({
     if (canContinueToPeople(name)) setStep(2);
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitting) return;
     const form = event.currentTarget;
     setSubmitting(true);
-    window.setTimeout(() => {
-      void Promise.resolve(action(new FormData(form)));
-    }, 500);
+    try {
+      await action(new FormData(form));
+    } catch {
+      setSubmitting(false);
+    }
   }
 
   return (
