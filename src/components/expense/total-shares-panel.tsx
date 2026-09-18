@@ -113,7 +113,7 @@ function ShareEditorModal({
     .filter((s) => s.weightType === "amount")
     .reduce((a, s) => a + s.weightValue, 0);
 
-  const myPercent = weightType === "percent" ? (toCents(percentValue) || 0) * 100 : 0;
+  const myPercent = weightType === "percent" ? toCents(percentValue) || 0 : 0;
   const myAmount = weightType === "amount" ? toCents(amountValue) || 0 : 0;
 
   const remainingPercent = 10000 - otherPercentTotal - myPercent;
