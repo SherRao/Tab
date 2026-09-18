@@ -3,6 +3,7 @@ import { requestSignInAction } from "@/lib/auth-actions";
 import { delayStyle } from "@/lib/motion";
 import { ErrorNote } from "@/components/ui/error-note";
 import { Field } from "@/components/ui/field";
+import { SubmitButton } from "@/components/ui/submit-button";
 
 const ERRORS: Record<string, string> = {
   invalid: "That doesn't look like an email address.",
@@ -61,9 +62,9 @@ export function SignInForm({
           className="input-ink mt-1.5"
         />
       </Field>
-      <button type="submit" className="btn-ink w-full">
+      <SubmitButton className="btn-ink w-full" pendingText="Sending…">
         Email me a magic link →
-      </button>
+      </SubmitButton>
     </form>
   );
 }
