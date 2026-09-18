@@ -74,12 +74,12 @@ export function parseReceipt(text: string): ReceiptDraft {
     }
 
     if (TAX_RE.test(lower)) {
-      taxCents = amountCents;
+      taxCents += amountCents;
       continue;
     }
 
     if (TIP_RE.test(lower)) {
-      tipCents = amountCents;
+      tipCents += amountCents;
       continue;
     }
 
