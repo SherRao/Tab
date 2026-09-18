@@ -9,8 +9,9 @@ import {
   updateGroupAction,
   updateExpenseAction,
 } from "@/lib/actions";
-import { toCents, toFixedMoney } from "@/lib/format";
+import { formatCents, toCents, toFixedMoney } from "@/lib/format";
 import { ChipToggleGroup } from "@/components/ui/chip-toggle-group";
+import { ErrorNote } from "@/components/ui/error-note";
 import { Field } from "@/components/ui/field";
 import { MoneyInput } from "@/components/ui/money-input";
 import { LineItemRow, type EditorItem } from "./line-item-row";
@@ -87,6 +88,7 @@ export default function ExpenseEditor({
     }));
   });
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Live copy of the event's groups so create/edit reflects immediately; the
   // server action's revalidate keeps the event page in sync.
@@ -132,6 +134,28 @@ export default function ExpenseEditor({
     ).length;
     return { itemsSum, expected, discrepancy, unassigned };
   }, [items, tax, tip, total]);
+
+  // Custom "as a total" shares that overrun the total. The per-share modal keeps
+  // each edit in budget, but the aggregate can still go over — e.g. after the
+  // total is lowered. Block Save so the ledger never has to scale amounts down
+  // to conserve (C3).
+  const shareIssue = useMemo(() => {
+    if (splitMode !== "even" || usingGroups) return null;
+    const totalCents = toCents(total) || 0;
+    const amountSum = shares
+      .filter((s) => s.weightType === "amount")
+      .reduce((a, s) => a + s.weightValue, 0);
+    if (amountSum > totalCents) {
+      return `Fixed shares add up to ${formatCents(amountSum)}, more than the ${formatCents(totalCents)} total.`;
+    }
+    const percentSum = shares
+      .filter((s) => s.weightType === "percent")
+      .reduce((a, s) => a + s.weightValue, 0);
+    if (percentSum > 10000) {
+      return `Percent shares add up to ${(percentSum / 100).toFixed(0)}%, over 100%.`;
+    }
+    return null;
+  }, [splitMode, usingGroups, shares, total]);
 
   function updateItem(idx: number, patch: Partial<EditorItem>) {
     setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
@@ -229,8 +253,9 @@ export default function ExpenseEditor({
   }
 
   async function handleSave() {
-    if (payerId === undefined) return;
+    if (payerId === undefined || shareIssue) return;
     setSaving(true);
+    setSaveError(null);
     try {
       const filteredItems = items
         .filter((it) => it.name.trim() || it.amount.trim())
@@ -260,6 +285,8 @@ export default function ExpenseEditor({
         await saveExpenseAction(token, payload);
       }
       router.push(`/e/${token}`);
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : "Could not save this receipt.");
     } finally {
       setSaving(false);
     }
@@ -469,12 +496,14 @@ export default function ExpenseEditor({
             among everyone.
           </p>
         )}
+        {shareIssue && <ErrorNote variant="form">{shareIssue}</ErrorNote>}
+        {saveError && <ErrorNote variant="form">{saveError}</ErrorNote>}
       </div>
 
       <div className="sticky bottom-0 z-10 flex gap-3 border-t border-dashed border-foreground/25 bg-paper/95 px-6 py-4 backdrop-blur sm:px-8">
         <button
           type="button"
-          disabled={saving || payerId === undefined}
+          disabled={saving || payerId === undefined || shareIssue !== null}
           onClick={handleSave}
           className="btn-ink flex-1 disabled:cursor-not-allowed"
         >
