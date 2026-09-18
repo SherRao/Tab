@@ -3,6 +3,7 @@ import { formatCents } from "@/lib/format";
 import { deleteExpenseAction } from "@/lib/actions";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionHeading } from "@/components/ui/section-heading";
+import { ConfirmDeleteButton } from "@/components/ui/confirm-delete-button";
 
 export interface ReceiptItemRow {
   id: number;
@@ -145,12 +146,7 @@ function ReceiptCard({
         <form action={deleteExpenseAction}>
           <input type="hidden" name="token" value={token} />
           <input type="hidden" name="expenseId" value={expense.id} />
-          <button
-            type="submit"
-            className="label-mono px-1 py-0.5 transition hover:text-red-600 hover:underline"
-          >
-            Delete
-          </button>
+          <ConfirmDeleteButton message="Delete this receipt? This cannot be undone." />
         </form>
       </div>
     </article>
