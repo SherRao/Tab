@@ -79,7 +79,7 @@ export async function createEventAction(formData: FormData) {
           ["account", "guest", "invite"].includes(String((e as CreateParticipantEntry).mode)),
       );
     } catch {
-      redirect("/create?error=1");
+      redirect("/create?error=payload");
     }
   } else {
     entries = rawLegacy

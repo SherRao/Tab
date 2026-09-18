@@ -57,7 +57,7 @@ export function CreateTabForm({
       </div>
       {error && (
         <ErrorNote variant="form" className="mt-4">
-          Please provide a name and one other person.
+          {error === "payload" ? "Something went wrong — please try again." : "Please provide a name and one other person."}
         </ErrorNote>
       )}
 
