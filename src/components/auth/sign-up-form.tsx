@@ -1,6 +1,7 @@
 import { completeSignUpAction } from "@/lib/auth-actions";
 import { ErrorNote } from "@/components/ui/error-note";
 import { Field } from "@/components/ui/field";
+import { SubmitButton } from "@/components/ui/submit-button";
 
 const ERRORS: Record<string, string> = {
   username: "That username is taken (2–24 chars: a–z, 0–9, underscore).",
@@ -40,9 +41,9 @@ export function SignUpForm({
           className="input-ink mt-1.5"
         />
       </Field>
-      <button type="submit" className="btn-ink w-full">
+      <SubmitButton className="btn-ink w-full" pendingText="Creating…">
         Create account →
-      </button>
+      </SubmitButton>
     </form>
   );
 }

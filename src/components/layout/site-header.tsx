@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getSessionUser } from "@/lib/auth";
 import { signOutAction } from "@/lib/auth-actions";
+import { SubmitButton } from "@/components/ui/submit-button";
 
 export default async function SiteHeader() {
   const viewer = await getSessionUser();
@@ -19,12 +20,12 @@ export default async function SiteHeader() {
               My tabs
             </Link>
             <form action={signOutAction}>
-              <button
-                type="submit"
+              <SubmitButton
                 className="label-mono text-stone-400 transition hover:text-red-600"
+                pendingText="…"
               >
                 Sign out
-              </button>
+              </SubmitButton>
             </form>
           </>
         ) : (

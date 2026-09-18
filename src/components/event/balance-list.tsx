@@ -3,6 +3,7 @@ import { formatCents } from "@/lib/format";
 import { requestClaimAction } from "@/lib/actions";
 import { AddSomeoneControl } from "@/components/people/add-someone-control";
 import { SectionHeading } from "@/components/ui/section-heading";
+import { SubmitButton } from "@/components/ui/submit-button";
 import {
   BalanceBreakdown,
   type ParticipantBreakdownView,
@@ -127,12 +128,12 @@ export function BalanceList({
                     <form action={requestClaimAction}>
                       <input type="hidden" name="token" value={token} />
                       <input type="hidden" name="participantId" value={p.id} />
-                      <button
-                        type="submit"
+                      <SubmitButton
                         className="label-mono text-[11px] text-stone-400 transition hover:text-accent-strong hover:underline"
+                        pendingText="Requesting…"
                       >
-                        “{p.displayName}” is me — request to claim
-                      </button>
+                        {`"${p.displayName}" is me — request to claim`}
+                      </SubmitButton>
                     </form>
                   )}
                 </div>
