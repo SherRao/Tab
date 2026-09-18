@@ -493,6 +493,79 @@ describe("live group resolution", () => {
     expect(netsAfter.get(3)).toBe(-3000);
     expect([...netsAfter.values()].reduce((a, b) => a + b, 0)).toBe(0);
   });
+
+  it("group that resolves to nobody consumes nothing — money stays unallocated (C31)", () => {
+    // A share row exists but points at a group with no resolvable members.
+    // Previously this silently charged everyone an even split.
+    const lookup = () => [];
+    const nets = computeNetBalances(
+      [alice, bob, carol],
+      [
+        {
+          payerId: 1,
+          taxCents: 0,
+          tipCents: 0,
+          totalCents: 9000,
+          splitMode: "even",
+          lineItems: [],
+          shares: [{ groupId: 100, weightType: "equal", weightValue: 10000 }],
+        },
+      ],
+      lookup,
+    );
+    // Payer keeps the full $90; nobody else is charged.
+    expect(nets.get(1)).toBe(9000);
+    expect(nets.get(2)).toBe(0);
+    expect(nets.get(3)).toBe(0);
+    expect([...nets.values()].reduce((a, b) => a + b, 0)).toBe(9000);
+  });
+
+  it("itemized line item whose shares resolve to nobody stays unallocated (C31)", () => {
+    // Mirrors the empty-shares test above (unassigned item splits equally), but
+    // here the item HAS a share row that resolves to nobody — so nothing is
+    // consumed instead of charging everyone.
+    const lookup = () => [];
+    const nets = computeNetBalances(
+      [alice, bob],
+      [
+        {
+          payerId: 1,
+          taxCents: 0,
+          tipCents: 0,
+          totalCents: 3000,
+          splitMode: "itemized",
+          lineItems: [{ id: 10, name: "Stale group item", amountCents: 3000, participantIds: [] }],
+          shares: [{ groupId: 100, lineItemId: 10, weightType: "equal", weightValue: 10000 }],
+        },
+      ],
+      lookup,
+    );
+    expect(nets.get(1)).toBe(3000);
+    expect(nets.get(2)).toBe(0);
+  });
+
+  it("empty shares still fall back to an even split, unlike C31 (C1)", () => {
+    // Same shape as the C31 test but with no share rows at all: the money must
+    // still be consumed, so it splits across everyone.
+    const nets = computeNetBalances(
+      [alice, bob, carol],
+      [
+        {
+          payerId: 1,
+          taxCents: 0,
+          tipCents: 0,
+          totalCents: 9000,
+          splitMode: "even",
+          lineItems: [],
+          shares: [],
+        },
+      ],
+    );
+    expect(nets.get(1)).toBe(6000);
+    expect(nets.get(2)).toBe(-3000);
+    expect(nets.get(3)).toBe(-3000);
+    expect([...nets.values()].reduce((a, b) => a + b, 0)).toBe(0);
+  });
 });
 
 describe("computeParticipantBreakdown parity", () => {
