@@ -1,4 +1,5 @@
 import { Reveal } from "@/components/ui/reveal";
+import { Parallax } from "@/components/ui/parallax";
 import type { CSSProperties } from "react";
 
 const SAMPLE_RECEIPTS = [
@@ -72,36 +73,38 @@ function MiniReceipt({
 export function ReceiptStack() {
   return (
     <div className="relative hidden min-h-[520px] select-none lg:col-span-5 lg:block">
-      <div className="rise-in absolute top-0 left-2" style={{ "--delay": "420ms" } as CSSProperties}>
-        <div
-          className="sway"
-          style={{ "--sway-duration": "7s", "--sway-delay": "-2s" } as CSSProperties}
-        >
-          <MiniReceipt {...SAMPLE_RECEIPTS[0]} className="-rotate-6" />
+      {/* Each slip drifts at its own rate as the hero scrolls away, so the
+          stack separates into layers instead of moving as one block. */}
+      <Parallax distance={-140} className="absolute top-0 left-2">
+        <div className="rise-in" style={{ "--delay": "420ms" } as CSSProperties}>
+          <div
+            className="sway"
+            style={{ "--sway-duration": "7s", "--sway-delay": "-2s" } as CSSProperties}
+          >
+            <MiniReceipt {...SAMPLE_RECEIPTS[0]} className="-rotate-6" />
+          </div>
         </div>
-      </div>
-      <div
-        className="rise-in absolute top-36 right-0"
-        style={{ "--delay": "540ms" } as CSSProperties}
-      >
-        <div
-          className="sway"
-          style={{ "--sway-duration": "9s", "--sway-delay": "-5s" } as CSSProperties}
-        >
-          <MiniReceipt {...SAMPLE_RECEIPTS[1]} className="rotate-3" />
+      </Parallax>
+      <Parallax distance={-260} className="absolute top-36 right-0">
+        <div className="rise-in" style={{ "--delay": "540ms" } as CSSProperties}>
+          <div
+            className="sway"
+            style={{ "--sway-duration": "9s", "--sway-delay": "-5s" } as CSSProperties}
+          >
+            <MiniReceipt {...SAMPLE_RECEIPTS[1]} className="rotate-3" />
+          </div>
         </div>
-      </div>
-      <div
-        className="rise-in absolute top-72 left-8"
-        style={{ "--delay": "660ms" } as CSSProperties}
-      >
-        <div
-          className="sway"
-          style={{ "--sway-duration": "8s", "--sway-delay": "-3.5s" } as CSSProperties}
-        >
-          <MiniReceipt {...SAMPLE_RECEIPTS[2]} className="rotate-[-2deg]" />
+      </Parallax>
+      <Parallax distance={-60} className="absolute top-72 left-8">
+        <div className="rise-in" style={{ "--delay": "660ms" } as CSSProperties}>
+          <div
+            className="sway"
+            style={{ "--sway-duration": "8s", "--sway-delay": "-3.5s" } as CSSProperties}
+          >
+            <MiniReceipt {...SAMPLE_RECEIPTS[2]} className="rotate-[-2deg]" />
+          </div>
         </div>
-      </div>
+      </Parallax>
       <Reveal variant="stamp" delay={500} className="absolute right-6 bottom-2">
         <span className="stamp">settled ✓</span>
       </Reveal>
