@@ -70,7 +70,7 @@ export function SearchChooser({
   const [open, setOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
 
-  const matches = useAccountSearch(raw, true);
+  const { matches, loading, error: searchError } = useAccountSearch(raw, true);
   const choices = buildChoices(raw, matches, addedUserIds);
 
   useEffect(() => {
@@ -97,6 +97,8 @@ export function SearchChooser({
       />
       {open && raw.trim().length >= 2 && (
         <ul className="paper-card absolute z-20 mt-1 max-h-64 w-full overflow-auto p-1">
+          {loading && <li className="px-3 py-2 text-xs text-stone-400">Searching…</li>}
+          {searchError && <li className="px-3 py-2 text-xs text-red-500">{searchError}</li>}
           {choices.map((c, i) => {
             const disabled = c.mode === "account" && addedUserIds.has(c.userId);
             return (
