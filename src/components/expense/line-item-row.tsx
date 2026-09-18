@@ -35,7 +35,7 @@ export function LineItemRow({
 
   function setParticipantQuantity(pid: number, qty: number) {
     onPatch({
-      participantQuantities: { ...item.participantQuantities, [pid]: qty },
+      participantQuantities: { ...item.participantQuantities, [pid]: Math.min(qty, totalQuantity) },
     });
   }
 
@@ -113,7 +113,7 @@ export function LineItemRow({
               (sum, p) => sum + (item.participantQuantities[p.id] || 0),
               0,
             );
-            if (assignedTotal !== totalQuantity && assignedTotal > 0) {
+            if (assignedTotal !== totalQuantity) {
               return (
                 <p className="mt-1 font-mono text-[11px] text-amber-600">
                   {assignedTotal} of {totalQuantity} assigned
