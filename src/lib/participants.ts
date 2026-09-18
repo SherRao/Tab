@@ -57,6 +57,19 @@ export type AddParticipantInput =
   | { mode: "guest"; name: string; email?: string }
   | { mode: "invite"; name: string; email: string };
 
+/** Narrow a loose add-people entry to the strict input `addParticipant` validates. */
+export function toAddParticipantInput(entry: CreateParticipantEntry): AddParticipantInput {
+  if (entry.mode === "account") return { mode: "account", userId: Number(entry.userId) };
+  if (entry.mode === "invite") {
+    return { mode: "invite", name: String(entry.name ?? ""), email: String(entry.email ?? "") };
+  }
+  return {
+    mode: "guest",
+    name: String(entry.name ?? ""),
+    email: entry.email ? String(entry.email) : undefined,
+  };
+}
+
 export class ParticipantError extends Error {}
 
 export async function addParticipant(

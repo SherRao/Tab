@@ -32,7 +32,7 @@ import {
   getEventOwnerId,
   linkAccountToParticipant,
   ParticipantError,
-  type AddParticipantInput,
+  toAddParticipantInput,
   type CreateParticipantEntry,
 } from "./participants";
 import { DELETE_ERROR_ONLY_OWNER, EVENT_ERRORS } from "./event-errors";
@@ -77,7 +77,13 @@ export async function createEventAction(formData: FormData) {
     redirect("/create?error=1");
   }
 
-  const { event, participants: created } = await createEventRecord(name, entries, user.id);
+  let event, created;
+  try {
+    ({ event, participants: created } = await createEventRecord(name, entries, user.id));
+  } catch (e) {
+    if (e instanceof ParticipantError) redirect("/create?error=1");
+    throw e;
+  }
 
   try {
     await addParticipantRow(event.id, { mode: "account", userId: user.id });
@@ -135,16 +141,7 @@ export async function addParticipantAction(formData: FormData) {
   }
 
   try {
-    const input: AddParticipantInput =
-      parsed.mode === "account"
-        ? { mode: "account", userId: Number(parsed.userId) }
-        : parsed.mode === "invite"
-          ? { mode: "invite", name: String(parsed.name ?? ""), email: String(parsed.email ?? "") }
-          : {
-              mode: "guest",
-              name: String(parsed.name ?? ""),
-              email: parsed.email ? String(parsed.email) : undefined,
-            };
+    const input = toAddParticipantInput(parsed);
     if (input.mode === "account" && !Number.isInteger(input.userId)) return;
 
     const row = await addParticipantRow(detail.event.id, input);
