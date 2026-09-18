@@ -10,13 +10,18 @@ export interface AccountMatch {
 
 export function useAccountSearch(query: string, enabled: boolean) {
   const [matches, setMatches] = useState<AccountMatch[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       if (!enabled || query.trim().length < 2) {
         setMatches([]);
+        setError(null);
         return;
       }
+      setLoading(true);
+      setError(null);
       try {
         const res = await fetch(`/api/accounts/search?q=${encodeURIComponent(query.trim())}`, {
           signal: controller.signal,
@@ -24,8 +29,12 @@ export function useAccountSearch(query: string, enabled: boolean) {
         if (!res.ok) throw new Error("search failed");
         const data = (await res.json()) as { accounts: AccountMatch[] };
         setMatches(data.accounts);
-      } catch {
-        /* aborted or offline */
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        setMatches([]);
+        setError("Search failed");
+      } finally {
+        setLoading(false);
       }
     }, 150);
     return () => {
@@ -33,5 +42,5 @@ export function useAccountSearch(query: string, enabled: boolean) {
       controller.abort();
     };
   }, [query, enabled]);
-  return matches;
+  return { matches, loading, error };
 }
