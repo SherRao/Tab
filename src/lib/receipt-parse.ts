@@ -12,7 +12,7 @@ export interface ReceiptDraft {
   usable: boolean;
 }
 
-const AMOUNT_RE = /(?:[$€£])?\s*(\d{1,3}(?:,\d{3})+\.\d{2}|\d+[.,]\d{2})(?!\d)/g;
+const AMOUNT_RE = /(?:[$€£])?\s*(\d{1,3}(?:\.\d{3})+,\d{2}|\d{1,3}(?:,\d{3})+\.\d{2}|\d+[.,]\d{2})(?!\d)/g;
 
 const SUBTOTAL_RE = /^sub\s?tot/i;
 const TAX_RE = /^(?:sales\s)?tax\b|^imposta\b/i;
@@ -31,7 +31,10 @@ function labelRemainderIsEmpty(name: string, labelMatch: RegExpMatchArray): bool
 function parseAmountCents(raw: string): number {
   const cleaned = raw.replace(/[$€£\s]/g, "");
   let normalized: string;
-  if (cleaned.includes(".")) {
+  // European: 1.234,56 — dots are thousands, comma is decimal
+  if (/^\d{1,3}(?:\.\d{3})+,\d{2}$/.test(cleaned)) {
+    normalized = cleaned.replace(/\./g, "").replace(",", ".");
+  } else if (cleaned.includes(".")) {
     normalized = cleaned.replace(/,/g, "");
   } else {
     normalized = cleaned.replace(/,/g, ".");
@@ -71,12 +74,12 @@ export function parseReceipt(text: string): ReceiptDraft {
     }
 
     if (TAX_RE.test(lower)) {
-      taxCents = amountCents;
+      taxCents += amountCents;
       continue;
     }
 
     if (TIP_RE.test(lower)) {
-      tipCents = amountCents;
+      tipCents += amountCents;
       continue;
     }
 
