@@ -33,7 +33,10 @@ export function CreateTabForm({
     const form = event.currentTarget;
     setSubmitting(true);
     try {
-      await action(new FormData(form));
+      await Promise.all([
+        action(new FormData(form)),
+        new Promise((r) => setTimeout(r, 500)),
+      ]);
     } catch {
       setSubmitting(false);
     }
