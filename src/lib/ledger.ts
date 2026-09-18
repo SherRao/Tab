@@ -119,8 +119,12 @@ function resolveShares(
     }
   }
 
-  // If no participants resolved, fall back to all
+  // No shares resolved. When the input was empty (unassigned item), fall back
+  // to an even split so the money is consumed (C1). When share rows existed but
+  // resolved to nobody (invalid group, removed members), return nothing rather
+  // than silently charging everyone (C31).
   if (participantWeights.size === 0 && participantAmounts.size === 0) {
+    if (shares.length > 0) return [];
     for (const id of allParticipantIds) {
       participantWeights.set(id, 1);
     }
