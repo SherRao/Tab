@@ -1,16 +1,49 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getOwnedEvents } from "@/lib/queries";
+import { getOwnedEvents, getParticipatingEvents } from "@/lib/queries";
 import { getSessionUser } from "@/lib/auth";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "My tabs" };
 
+function EventList({ events }: { events: { id: number; name: string; shareToken: string; createdAt: Date }[] }) {
+  return (
+    <ul className="divide-y divide-dashed divide-foreground/10">
+      {events.map((event) => (
+        <li key={event.id}>
+          <Link
+            href={`/e/${event.shareToken}`}
+            className="group flex items-baseline justify-between gap-3 py-3.5 transition"
+          >
+            <span className="truncate font-medium group-hover:text-accent-strong">
+              {event.name}
+            </span>
+            <span className="label-mono shrink-0 text-stone-400">
+              {event.createdAt.toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              })}
+              <span className="ml-3 inline-block transition group-hover:translate-x-0.5">
+                →
+              </span>
+            </span>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export default async function TabsPage() {
   const viewer = await getSessionUser();
   if (!viewer) redirect("/signin?next=%2Ftabs");
 
-  const events = await getOwnedEvents(viewer.id);
+  const [owned, participating] = await Promise.all([
+    getOwnedEvents(viewer.id),
+    getParticipatingEvents(viewer.id),
+  ]);
+  const ownedIds = new Set(owned.map((e) => e.id));
+  const shared = participating.filter((e) => !ownedIds.has(e.id));
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-6 pt-8 pb-20">
@@ -20,7 +53,7 @@ export default async function TabsPage() {
         <h2 className="label-mono border-b border-foreground/15 pb-2 text-stone-400">
           Events you own
         </h2>
-        {events.length === 0 ? (
+        {owned.length === 0 ? (
           <div className="mt-4 border border-dashed border-foreground/25 p-10 text-center">
             <p className="font-medium text-stone-500">No tabs yet.</p>
             <Link
@@ -32,38 +65,25 @@ export default async function TabsPage() {
           </div>
         ) : (
           <>
-          <ul className="divide-y divide-dashed divide-foreground/10">
-            {events.map((event) => (
-              <li key={event.id}>
-                <Link
-                  href={`/e/${event.shareToken}`}
-                  className="group flex items-baseline justify-between gap-3 py-3.5 transition"
-                >
-                  <span className="truncate font-medium group-hover:text-accent-strong">
-                    {event.name}
-                  </span>
-                  <span className="label-mono shrink-0 text-stone-400">
-                    {event.createdAt.toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })}
-                    <span className="ml-3 inline-block transition group-hover:translate-x-0.5">
-                      →
-                    </span>
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-          <Link
-            href="/create"
-            className="label-mono mt-4 inline-block text-accent-strong hover:underline"
-          >
-            Start a new tab →
-          </Link>
+            <EventList events={owned} />
+            <Link
+              href="/create"
+              className="label-mono mt-4 inline-block text-accent-strong hover:underline"
+            >
+              Start a new tab →
+            </Link>
           </>
         )}
       </section>
+
+      {shared.length > 0 && (
+        <section className="mt-12">
+          <h2 className="label-mono border-b border-foreground/15 pb-2 text-stone-400">
+            {"Tabs you're on"}
+          </h2>
+          <EventList events={shared} />
+        </section>
+      )}
     </main>
   );
 }
