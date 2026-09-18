@@ -35,7 +35,7 @@ export function LineItemRow({
 
   function setParticipantQuantity(pid: number, qty: number) {
     onPatch({
-      participantQuantities: { ...item.participantQuantities, [pid]: qty },
+      participantQuantities: { ...item.participantQuantities, [pid]: Math.min(qty, totalQuantity) },
     });
   }
 
