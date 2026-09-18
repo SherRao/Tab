@@ -1,5 +1,6 @@
 import { decideClaimAction } from "@/lib/actions";
 import { SectionHeading } from "@/components/ui/section-heading";
+import { SubmitButton } from "@/components/ui/submit-button";
 
 export interface ClaimRequestRow {
   id: number;
@@ -39,20 +40,20 @@ export function ClaimRequests({
                   <input type="hidden" name="token" value={token} />
                   <input type="hidden" name="claimId" value={claim.id} />
                   <input type="hidden" name="decision" value="approve" />
-                  <button type="submit" className="btn-ink px-3 py-1.5 text-xs">
+                  <SubmitButton className="btn-ink px-3 py-1.5 text-xs" pendingText="…">
                     Approve
-                  </button>
+                  </SubmitButton>
                 </form>
                 <form action={decideClaimAction}>
                   <input type="hidden" name="token" value={token} />
                   <input type="hidden" name="claimId" value={claim.id} />
                   <input type="hidden" name="decision" value="deny" />
-                  <button
-                    type="submit"
+                  <SubmitButton
                     className="btn-ghost px-3 py-1.5 text-xs hover:text-red-600"
+                    pendingText="…"
                   >
                     Deny
-                  </button>
+                  </SubmitButton>
                 </form>
               </span>
             </li>
