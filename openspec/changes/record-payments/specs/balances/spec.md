@@ -2,7 +2,7 @@
 
 ### Requirement: Net balance derivation
 
-The system SHALL compute each participant's net balance as total paid on expenses minus total consumed, plus payments received minus payments sent, where consumed includes allocated line-item costs plus proportional tax and tip. Net balances SHALL be derived from stored facts on demand, never stored as authoritative data.
+The system SHALL compute each participant's net balance as total paid on expenses minus total consumed, plus payments sent minus payments received, where consumed includes allocated line-item costs plus proportional tax and tip. Net balances SHALL be derived from stored facts on demand, never stored as authoritative data.
 
 #### Scenario: Single expense balance
 

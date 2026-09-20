@@ -7,9 +7,9 @@
 
 ## 2. Ledger math
 
-- [ ] 2.1 Add `LedgerPayment` type and a `payments` parameter to `computeNetBalances` and `computeParticipantBreakdown` in `src/lib/ledger.ts`; fold `received − sent` into each participant's net. Verify with a new vitest case: A pays $60, B consumes $30, B records $30 payment → both nets are 0.
-- [ ] 2.2 Extend `computeParticipantBreakdown` to return a `payments` section listing payments sent and received for that participant; verify with a vitest case asserting the section is populated and totals reconcile with `netCents`.
-- [ ] 2.3 Add scenarios to the existing ledger flow test covering: partial payment reducing debt, overpayment flipping direction, deletion reversing effect. Verify `npm test` passes.
+- [x] 2.1 Add `LedgerPayment` type and a `payments` parameter to `computeNetBalances` and `computeParticipantBreakdown` in `src/lib/ledger.ts`; fold `sent − received` into each participant's net (sign chosen so a payer's positive send offsets their negative net). Verify with a new vitest case: A pays $60, B consumes $30, B records $30 payment → both nets are 0.
+- [x] 2.2 Extend `computeParticipantBreakdown` to return a `payments` section listing payments sent and received for that participant; verify with a vitest case asserting the section is populated and totals reconcile with `netCents`.
+- [x] 2.3 Add scenarios to the existing ledger test covering: partial payment reducing debt, overpayment flipping direction, deletion reversing effect. Verify `npm test` passes.
 
 ## 3. Server actions and auth
 

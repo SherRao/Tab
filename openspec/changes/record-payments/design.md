@@ -25,9 +25,9 @@ Alternative considered: model a payment as an expense with `payer = sender`, one
 
 **Why**: keeps expenses and payments cleanly separate in storage and in UI, makes the ledger math a small additive change, and avoids leaking payment concerns into the receipt list, line-item shares, and tax/tip logic.
 
-### D2. Ledger math: `net = paid − consumed + received − sent`
+### D2. Ledger math: `net = paid − consumed + sent − received`
 
-`computeConsumption` stays unchanged. Introduce a small pass over payments producing two maps (`paidToOthers`, `receivedFromOthers`) keyed by participant id. `computeNetBalances` takes an additional `payments: LedgerPayment[]` argument and folds those maps in. `computeParticipantBreakdown` gains a `payments` section on the returned shape so the per-person view can list "Paid to X: $Y" and "Received from Y: $Z" alongside the item breakdown.
+`computeConsumption` stays unchanged. Introduce a small pass over payments producing two maps (`sent`, `received`) keyed by participant id. `computeNetBalances` takes an additional `payments: LedgerPayment[]` argument and folds those maps in. Sign check: if B owes A $30 and B pays A $30, B's payment "sent" cancels B's negative net; A's payment "received" cancels A's positive net. `computeParticipantBreakdown` gains a `payments` section on the returned shape so the per-person view can list "Paid to X: $Y" and "Received from Y: $Z" alongside the item breakdown.
 
 Alternative: bake payments inside `computeConsumption` by adding artificial "expense-like" rows. Rejected — obscures what the math is doing and pollutes the extras allocation loop.
 
