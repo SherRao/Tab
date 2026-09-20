@@ -20,11 +20,11 @@
 
 ## 4. UI: editor and history
 
-- [ ] 4.1 Create `src/components/payment/payment-editor.tsx` (client component) with fields for recipient (dropdown of other participants), amount (money-input), and note (optional). The "from" field is read-only and shows the current claimed participant, or an inline "sign in and claim yourself as ..." nudge when unclaimed. Verify by rendering with a claimed viewer and with an unclaimed viewer.
-- [ ] 4.2 Create `src/components/event/record-payment-button.tsx` that opens the editor in free-form mode; verify it appears on the event page and opens the editor.
-- [ ] 4.3 Create `src/components/event/payment-history.tsx` listing payments for the event (sender → recipient · amount · note · relative time). Show edit/delete only when the viewer is claimed to the row's `from`. Verify rendering with mixed rows (viewer-owned and other) and confirm affordances match.
-- [ ] 4.4 Integrate `payment-history` and `record-payment-button` inline under `settle-up-list` in `src/app/e/[token]/page.tsx`; verify the layout in the browser.
-- [ ] 4.5 Extend `settle-up-list` so each suggested transfer row exposes a "Mark as paid" action that opens `payment-editor` pre-filled with the suggested recipient and amount, still editable. Verify: tapping the action opens the editor with correct pre-fill, and confirming records a payment that clears the suggestion.
+- [x] 4.1 Create `src/components/payment/payment-editor.tsx` (client component) with recipient dropdown, money input, and optional note. "From" is read-only and shows the viewer's claimed participant; unclaimed viewers see a sign-in nudge instead of the form. Delete affordance surfaces when editing.
+- [x] 4.2 Free-form "Record a payment" button lives in `PaymentsPanel` (rather than a separate `record-payment-button.tsx`) so a single editor state is shared with the settle-up rows and history.
+- [x] 4.3 `PaymentsPanel` renders the payment history inline (sender → recipient, amount, date, note). Edit affordance shows only for rows the viewer paid; edit opens the shared editor pre-filled with delete inside.
+- [x] 4.4 `PaymentsPanel` replaces the previous `SettleUpList` in `src/app/(app)/e/[token]/page.tsx`; layout: suggestions → Record button → editor → history. The old `settle-up-list.tsx` file is removed since the panel supersedes it.
+- [x] 4.5 Each suggested transfer row in `PaymentsPanel` gains a "Mark as paid" button (rendered only for the viewer's own outgoing suggestions) that opens the editor pre-filled with the suggested recipient and amount, still editable.
 
 ## 5. Integration + polish
 
