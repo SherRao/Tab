@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { MoneyInput } from "@/components/ui/money-input";
 import { ErrorNote } from "@/components/ui/error-note";
 import { toCents, toFixedMoney } from "@/lib/format";
@@ -9,6 +9,9 @@ import {
   deletePaymentAction,
   updatePaymentAction,
 } from "@/lib/actions";
+
+// Mirrors the server-side cap in actions.ts; if this ever drifts, the server rejects long notes.
+const MAX_NOTE_LEN = 200;
 
 export interface EditorParticipant {
   id: number;
@@ -54,7 +57,6 @@ function PaymentEditorOpen({
   const [note, setNote] = useState<string>(state.initialNote ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const firstFieldRef = useRef<HTMLSelectElement | HTMLInputElement | null>(null);
 
   const isEditing = state.editingPaymentId != null;
 
@@ -151,9 +153,6 @@ function PaymentEditorOpen({
         <label className="block">
           <span className="label-mono text-[10px] uppercase text-stone-500">To</span>
           <select
-            ref={(el) => {
-              firstFieldRef.current = el;
-            }}
             value={toId ?? ""}
             onChange={(e) => setToId(e.target.value ? Number(e.target.value) : null)}
             className="input-ink mt-1.5"
@@ -179,7 +178,7 @@ function PaymentEditorOpen({
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="Venmo, cash, …"
-            maxLength={200}
+            maxLength={MAX_NOTE_LEN}
             className="input-ink mt-1.5"
             aria-label="Note"
           />

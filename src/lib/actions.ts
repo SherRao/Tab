@@ -638,7 +638,7 @@ async function requirePayerParticipant(token: string) {
       "Sign in and claim your participant on this tab before recording a payment.",
     );
   }
-  return { user, detail, actingParticipant: linked };
+  return { detail, actingParticipant: linked };
 }
 
 function normalizePaymentNote(note: string | null | undefined): string | null {

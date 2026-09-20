@@ -47,16 +47,12 @@ export interface Transfer {
   amountCents: number;
 }
 
-function computePaymentTotals(
-  participants: LedgerParticipant[],
-  payments: LedgerPayment[],
-): { sent: Map<number, number>; received: Map<number, number> } {
+function computePaymentTotals(payments: LedgerPayment[]): {
+  sent: Map<number, number>;
+  received: Map<number, number>;
+} {
   const sent = new Map<number, number>();
   const received = new Map<number, number>();
-  for (const p of participants) {
-    sent.set(p.id, 0);
-    received.set(p.id, 0);
-  }
   for (const pay of payments) {
     sent.set(pay.fromParticipantId, (sent.get(pay.fromParticipantId) ?? 0) + pay.amountCents);
     received.set(pay.toParticipantId, (received.get(pay.toParticipantId) ?? 0) + pay.amountCents);
@@ -374,7 +370,7 @@ export function computeNetBalances(
     expenses,
     groupMemberLookup,
   );
-  const { sent, received } = computePaymentTotals(participants, payments);
+  const { sent, received } = computePaymentTotals(payments);
   const nets = new Map<number, number>();
   for (const p of participants) {
     const paid = paidCents.get(p.id) ?? 0;

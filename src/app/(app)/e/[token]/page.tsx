@@ -94,14 +94,8 @@ export default async function EventPage({
     })),
   }));
 
-  const ledgerPayments: LedgerPayment[] = paymentRows.map((p) => ({
-    id: p.id,
-    fromParticipantId: p.fromParticipantId,
-    toParticipantId: p.toParticipantId,
-    amountCents: p.amountCents,
-    note: p.note,
-    createdAt: p.createdAt,
-  }));
+  // PaymentRow is structurally a LedgerPayment (extra eventId is ignored).
+  const ledgerPayments: LedgerPayment[] = paymentRows;
   const nets = computeNetBalances(people, ledgerExpenses, groupMemberLookup, ledgerPayments);
   const transfers = simplifyDebts(nets);
   const viewerParticipantId = viewer
@@ -209,14 +203,7 @@ export default async function EventPage({
       <PaymentsPanel
         token={token}
         transfers={transfers}
-        history={paymentRows.map((p) => ({
-          id: p.id,
-          fromParticipantId: p.fromParticipantId,
-          toParticipantId: p.toParticipantId,
-          amountCents: p.amountCents,
-          note: p.note,
-          createdAt: p.createdAt,
-        }))}
+        history={paymentRows}
         participants={people.map((p) => ({ id: p.id, displayName: p.userDisplayName ?? p.name }))}
         nameOf={nameOf}
         viewerParticipantId={viewerParticipantId}
