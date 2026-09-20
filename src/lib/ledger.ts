@@ -32,10 +32,36 @@ export interface LedgerExpense {
   shares?: LedgerShare[];
 }
 
+export interface LedgerPayment {
+  id?: number;
+  fromParticipantId: number;
+  toParticipantId: number;
+  amountCents: number;
+  note?: string | null;
+  createdAt?: Date;
+}
+
 export interface Transfer {
   fromId: number;
   toId: number;
   amountCents: number;
+}
+
+function computePaymentTotals(
+  participants: LedgerParticipant[],
+  payments: LedgerPayment[],
+): { sent: Map<number, number>; received: Map<number, number> } {
+  const sent = new Map<number, number>();
+  const received = new Map<number, number>();
+  for (const p of participants) {
+    sent.set(p.id, 0);
+    received.set(p.id, 0);
+  }
+  for (const pay of payments) {
+    sent.set(pay.fromParticipantId, (sent.get(pay.fromParticipantId) ?? 0) + pay.amountCents);
+    received.set(pay.toParticipantId, (received.get(pay.toParticipantId) ?? 0) + pay.amountCents);
+  }
+  return { sent, received };
 }
 
 function allocatePositive(total: number, weights: number[]): number[] {
@@ -341,15 +367,21 @@ export function computeNetBalances(
   participants: LedgerParticipant[],
   expenses: LedgerExpense[],
   groupMemberLookup: (groupId: number) => number[] = () => [],
+  payments: LedgerPayment[] = [],
 ): Map<number, number> {
   const { paidCents, consumedCents } = computeConsumption(
     participants,
     expenses,
     groupMemberLookup,
   );
+  const { sent, received } = computePaymentTotals(participants, payments);
   const nets = new Map<number, number>();
   for (const p of participants) {
-    nets.set(p.id, (paidCents.get(p.id) ?? 0) - (consumedCents.get(p.id) ?? 0));
+    const paid = paidCents.get(p.id) ?? 0;
+    const consumed = consumedCents.get(p.id) ?? 0;
+    const rec = received.get(p.id) ?? 0;
+    const snt = sent.get(p.id) ?? 0;
+    nets.set(p.id, paid - consumed + snt - rec);
   }
   return nets;
 }
@@ -390,9 +422,25 @@ export interface ParticipantBreakdown {
     itemAmountCents: number;
     shareCents: number;
   }[];
+  paymentsSent: {
+    paymentId: number | undefined;
+    toParticipantId: number;
+    amountCents: number;
+    note: string | null | undefined;
+    createdAt: Date | undefined;
+  }[];
+  paymentsReceived: {
+    paymentId: number | undefined;
+    fromParticipantId: number;
+    amountCents: number;
+    note: string | null | undefined;
+    createdAt: Date | undefined;
+  }[];
   taxShareCents: number;
   tipShareCents: number;
   otherExtrasShareCents: number;
+  totalPaymentsSentCents: number;
+  totalPaymentsReceivedCents: number;
   totalConsumedCents: number;
   totalPaidCents: number;
   netCents: number;
@@ -403,10 +451,38 @@ export function computeParticipantBreakdown(
   expenses: LedgerExpense[],
   participantId: number,
   groupMemberLookup: (groupId: number) => number[] = () => [],
+  payments: LedgerPayment[] = [],
 ): ParticipantBreakdown {
   const consumption = computeConsumption(participants, expenses, groupMemberLookup);
   const paid = consumption.paidCents.get(participantId) ?? 0;
   const consumed = consumption.consumedCents.get(participantId) ?? 0;
+
+  const paymentsSent: ParticipantBreakdown["paymentsSent"] = [];
+  const paymentsReceived: ParticipantBreakdown["paymentsReceived"] = [];
+  let totalPaymentsSentCents = 0;
+  let totalPaymentsReceivedCents = 0;
+  for (const pay of payments) {
+    if (pay.fromParticipantId === participantId) {
+      paymentsSent.push({
+        paymentId: pay.id,
+        toParticipantId: pay.toParticipantId,
+        amountCents: pay.amountCents,
+        note: pay.note,
+        createdAt: pay.createdAt,
+      });
+      totalPaymentsSentCents += pay.amountCents;
+    }
+    if (pay.toParticipantId === participantId) {
+      paymentsReceived.push({
+        paymentId: pay.id,
+        fromParticipantId: pay.fromParticipantId,
+        amountCents: pay.amountCents,
+        note: pay.note,
+        createdAt: pay.createdAt,
+      });
+      totalPaymentsReceivedCents += pay.amountCents;
+    }
+  }
 
   const items: ParticipantBreakdown["items"] = [];
 
@@ -529,14 +605,18 @@ export function computeParticipantBreakdown(
   }
 
   const totalConsumedCents = consumed;
-  const netCents = paid - totalConsumedCents;
+  const netCents = paid - totalConsumedCents + totalPaymentsSentCents - totalPaymentsReceivedCents;
 
   return {
     participantId,
     items,
+    paymentsSent,
+    paymentsReceived,
     taxShareCents: consumption.taxShareCents.get(participantId) ?? 0,
     tipShareCents: consumption.tipShareCents.get(participantId) ?? 0,
     otherExtrasShareCents: consumption.otherExtrasShareCents.get(participantId) ?? 0,
+    totalPaymentsSentCents,
+    totalPaymentsReceivedCents,
     totalConsumedCents,
     totalPaidCents: paid,
     netCents,
