@@ -10,6 +10,7 @@ import {
   participantClaims,
   participantGroup,
   participants,
+  payments,
   SPLIT_MODES,
   type SplitMode,
   events,
@@ -611,5 +612,124 @@ export async function deleteGroupAction(token: string, groupId: number): Promise
   }
 
   await db.delete(groups).where(eq(groups.id, groupId));
+  revalidatePath(`/e/${token}`);
+}
+
+const MAX_PAYMENT_NOTE_LEN = 200;
+
+export interface PaymentInput {
+  toParticipantId: number;
+  amountCents: number;
+  note?: string | null;
+}
+
+/**
+ * Resolve the acting participant for (session user, event). Only a viewer
+ * signed in with an account linked to a participant in this event may write
+ * payment records — see design.md D3.
+ */
+async function requirePayerParticipant(token: string) {
+  const user = await requireSession(`/e/${token}`);
+  const detail = await getEventByToken(token);
+  if (!detail) throw new Error("Event not found");
+  const linked = await findLinkedParticipant(detail.event.id, user.id);
+  if (!linked) {
+    throw new Error(
+      "Sign in and claim your participant on this tab before recording a payment.",
+    );
+  }
+  return { detail, actingParticipant: linked };
+}
+
+function normalizePaymentNote(note: string | null | undefined): string | null {
+  if (note == null) return null;
+  const trimmed = String(note).trim();
+  if (!trimmed) return null;
+  if (trimmed.length > MAX_PAYMENT_NOTE_LEN) {
+    throw new Error("Payment note is too long");
+  }
+  return trimmed;
+}
+
+function assertPositiveCents(value: number, label: string) {
+  if (!Number.isSafeInteger(value) || value <= 0 || value > 100_000_000) {
+    throw new Error(`${label} must be a positive whole number of cents up to 100000000`);
+  }
+}
+
+export async function createPaymentAction(token: string, input: PaymentInput): Promise<void> {
+  const { detail, actingParticipant } = await requirePayerParticipant(token);
+  const validIds = new Set(detail.participants.map((p) => p.id));
+
+  if (!validIds.has(input.toParticipantId)) {
+    throw new Error("Recipient is not a participant of this event");
+  }
+  if (input.toParticipantId === actingParticipant.id) {
+    throw new Error("You can't record a payment to yourself");
+  }
+  assertPositiveCents(input.amountCents, "Amount");
+  const note = normalizePaymentNote(input.note);
+
+  await db.insert(payments).values({
+    eventId: detail.event.id,
+    fromParticipantId: actingParticipant.id,
+    toParticipantId: input.toParticipantId,
+    amountCents: input.amountCents,
+    note,
+  });
+
+  revalidatePath(`/e/${token}`);
+}
+
+export interface PaymentUpdateInput {
+  amountCents?: number;
+  note?: string | null;
+  toParticipantId?: number;
+}
+
+export async function updatePaymentAction(
+  token: string,
+  paymentId: number,
+  input: PaymentUpdateInput,
+): Promise<void> {
+  const { detail, actingParticipant } = await requirePayerParticipant(token);
+  const [row] = await db.select().from(payments).where(eq(payments.id, paymentId));
+  if (!row || row.eventId !== detail.event.id) throw new Error("Payment not found");
+  if (row.fromParticipantId !== actingParticipant.id) {
+    throw new Error("Only the payer can edit this payment");
+  }
+
+  const validIds = new Set(detail.participants.map((p) => p.id));
+  const patch: Partial<typeof payments.$inferInsert> = {};
+  if (input.amountCents != null) {
+    assertPositiveCents(input.amountCents, "Amount");
+    patch.amountCents = input.amountCents;
+  }
+  if (input.toParticipantId != null) {
+    if (!validIds.has(input.toParticipantId)) {
+      throw new Error("Recipient is not a participant of this event");
+    }
+    if (input.toParticipantId === actingParticipant.id) {
+      throw new Error("You can't record a payment to yourself");
+    }
+    patch.toParticipantId = input.toParticipantId;
+  }
+  if (input.note !== undefined) {
+    patch.note = normalizePaymentNote(input.note);
+  }
+  if (Object.keys(patch).length === 0) return;
+
+  await db.update(payments).set(patch).where(eq(payments.id, paymentId));
+  revalidatePath(`/e/${token}`);
+}
+
+export async function deletePaymentAction(token: string, paymentId: number): Promise<void> {
+  const { detail, actingParticipant } = await requirePayerParticipant(token);
+  const [row] = await db.select().from(payments).where(eq(payments.id, paymentId));
+  if (!row || row.eventId !== detail.event.id) throw new Error("Payment not found");
+  if (row.fromParticipantId !== actingParticipant.id) {
+    throw new Error("Only the payer can delete this payment");
+  }
+  await db.delete(payments).where(eq(payments.id, paymentId));
   revalidatePath(`/e/${token}`);
 }

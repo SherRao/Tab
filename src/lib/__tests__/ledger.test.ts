@@ -7,6 +7,7 @@ import {
   simplifyDebts,
   type LedgerExpense,
   type LedgerParticipant,
+  type LedgerPayment,
 } from "../ledger";
 
 const P = (id: number, name: string): LedgerParticipant => ({ id, name });
@@ -300,6 +301,73 @@ describe("computeNetBalances", () => {
   });
 });
 
+describe("payments in the ledger", () => {
+  const alice = P(1, "Alice");
+  const bob = P(2, "Bob");
+
+  const evenSplit60: LedgerExpense[] = [
+    {
+      payerId: 1,
+      taxCents: 0,
+      tipCents: 0,
+      totalCents: 6000,
+      splitMode: "even",
+      lineItems: [],
+      shares: [
+        { participantId: 1, weightType: "equal", weightValue: 10000 },
+        { participantId: 2, weightType: "equal", weightValue: 10000 },
+      ],
+    },
+  ];
+
+  it("a $30 payment settles the $30 debt so both nets are 0", () => {
+    const payments: LedgerPayment[] = [
+      { fromParticipantId: 2, toParticipantId: 1, amountCents: 3000 },
+    ];
+    const nets = computeNetBalances([alice, bob], evenSplit60, undefined, payments);
+    expect(nets.get(1)).toBe(0);
+    expect(nets.get(2)).toBe(0);
+  });
+
+  it("partial payment reduces the debt", () => {
+    const payments: LedgerPayment[] = [
+      { fromParticipantId: 2, toParticipantId: 1, amountCents: 2000 },
+    ];
+    const nets = computeNetBalances([alice, bob], evenSplit60, undefined, payments);
+    expect(nets.get(1)).toBe(1000);
+    expect(nets.get(2)).toBe(-1000);
+  });
+
+  it("overpayment flips the direction of the debt", () => {
+    const payments: LedgerPayment[] = [
+      { fromParticipantId: 2, toParticipantId: 1, amountCents: 5000 },
+    ];
+    const nets = computeNetBalances([alice, bob], evenSplit60, undefined, payments);
+    expect(nets.get(1)).toBe(-2000);
+    expect(nets.get(2)).toBe(2000);
+  });
+
+  it("removing a payment reverses its effect on net balances", () => {
+    const paymentsBefore: LedgerPayment[] = [
+      { fromParticipantId: 2, toParticipantId: 1, amountCents: 3000 },
+    ];
+    const netsBefore = computeNetBalances([alice, bob], evenSplit60, undefined, paymentsBefore);
+    expect(netsBefore.get(1)).toBe(0);
+
+    const netsAfterDelete = computeNetBalances([alice, bob], evenSplit60, undefined, []);
+    expect(netsAfterDelete.get(1)).toBe(3000);
+    expect(netsAfterDelete.get(2)).toBe(-3000);
+  });
+
+  it("balances still sum to zero when payments are present", () => {
+    const payments: LedgerPayment[] = [
+      { fromParticipantId: 2, toParticipantId: 1, amountCents: 1500 },
+    ];
+    const nets = computeNetBalances([alice, bob], evenSplit60, undefined, payments);
+    expect([...nets.values()].reduce((a, b) => a + b, 0)).toBe(0);
+  });
+});
+
 describe("simplifyDebts", () => {
   it("cancels a chain: A owes B $10, B owes C $10 -> A pays C $10 only", () => {
     const transfers = simplifyDebts(
@@ -493,6 +561,79 @@ describe("live group resolution", () => {
     expect(netsAfter.get(3)).toBe(-3000);
     expect([...netsAfter.values()].reduce((a, b) => a + b, 0)).toBe(0);
   });
+
+  it("group that resolves to nobody consumes nothing — money stays unallocated (C31)", () => {
+    // A share row exists but points at a group with no resolvable members.
+    // Previously this silently charged everyone an even split.
+    const lookup = () => [];
+    const nets = computeNetBalances(
+      [alice, bob, carol],
+      [
+        {
+          payerId: 1,
+          taxCents: 0,
+          tipCents: 0,
+          totalCents: 9000,
+          splitMode: "even",
+          lineItems: [],
+          shares: [{ groupId: 100, weightType: "equal", weightValue: 10000 }],
+        },
+      ],
+      lookup,
+    );
+    // Payer keeps the full $90; nobody else is charged.
+    expect(nets.get(1)).toBe(9000);
+    expect(nets.get(2)).toBe(0);
+    expect(nets.get(3)).toBe(0);
+    expect([...nets.values()].reduce((a, b) => a + b, 0)).toBe(9000);
+  });
+
+  it("itemized line item whose shares resolve to nobody stays unallocated (C31)", () => {
+    // Mirrors the empty-shares test above (unassigned item splits equally), but
+    // here the item HAS a share row that resolves to nobody — so nothing is
+    // consumed instead of charging everyone.
+    const lookup = () => [];
+    const nets = computeNetBalances(
+      [alice, bob],
+      [
+        {
+          payerId: 1,
+          taxCents: 0,
+          tipCents: 0,
+          totalCents: 3000,
+          splitMode: "itemized",
+          lineItems: [{ id: 10, name: "Stale group item", amountCents: 3000, participantIds: [] }],
+          shares: [{ groupId: 100, lineItemId: 10, weightType: "equal", weightValue: 10000 }],
+        },
+      ],
+      lookup,
+    );
+    expect(nets.get(1)).toBe(3000);
+    expect(nets.get(2)).toBe(0);
+  });
+
+  it("empty shares still fall back to an even split, unlike C31 (C1)", () => {
+    // Same shape as the C31 test but with no share rows at all: the money must
+    // still be consumed, so it splits across everyone.
+    const nets = computeNetBalances(
+      [alice, bob, carol],
+      [
+        {
+          payerId: 1,
+          taxCents: 0,
+          tipCents: 0,
+          totalCents: 9000,
+          splitMode: "even",
+          lineItems: [],
+          shares: [],
+        },
+      ],
+    );
+    expect(nets.get(1)).toBe(6000);
+    expect(nets.get(2)).toBe(-3000);
+    expect(nets.get(3)).toBe(-3000);
+    expect([...nets.values()].reduce((a, b) => a + b, 0)).toBe(0);
+  });
 });
 
 describe("computeParticipantBreakdown parity", () => {
@@ -581,6 +722,39 @@ describe("computeParticipantBreakdown parity", () => {
     expect(
       itemSum + bAlice.taxShareCents + bAlice.tipShareCents + bAlice.otherExtrasShareCents,
     ).toBe(bAlice.totalConsumedCents);
+  });
+
+  it("payments section lists sent + received for the participant and reconciles with net", () => {
+    const expenses: LedgerExpense[] = [
+      {
+        payerId: 1,
+        taxCents: 0,
+        tipCents: 0,
+        totalCents: 6000,
+        splitMode: "even",
+        lineItems: [],
+        shares: [
+          { participantId: 1, weightType: "equal", weightValue: 10000 },
+          { participantId: 2, weightType: "equal", weightValue: 10000 },
+        ],
+      },
+    ];
+    const payments: LedgerPayment[] = [
+      { fromParticipantId: 2, toParticipantId: 1, amountCents: 1000, note: "cash" },
+      { fromParticipantId: 2, toParticipantId: 1, amountCents: 500, note: null },
+    ];
+    const bAlice = computeParticipantBreakdown([alice, bob, carol], expenses, 1, undefined, undefined, payments);
+    const bBob = computeParticipantBreakdown([alice, bob, carol], expenses, 2, undefined, undefined, payments);
+    expect(bAlice.paymentsReceived.map((p) => p.amountCents)).toEqual([1000, 500]);
+    expect(bAlice.paymentsSent).toEqual([]);
+    expect(bAlice.totalPaymentsReceivedCents).toBe(1500);
+    expect(bBob.paymentsSent.map((p) => p.amountCents)).toEqual([1000, 500]);
+    expect(bBob.totalPaymentsSentCents).toBe(1500);
+    // Reconcile: paid − consumed + sent − received
+    expect(bAlice.netCents).toBe(
+      bAlice.totalPaidCents - bAlice.totalConsumedCents +
+        bAlice.totalPaymentsSentCents - bAlice.totalPaymentsReceivedCents,
+    );
   });
 
   it("even-mode breakdown no longer double-counts tax/tip (C5)", () => {
