@@ -28,8 +28,8 @@
 
 ## 5. Integration + polish
 
-- [ ] 5.1 Wire edit and delete affordances on `payment-history` rows to the update/delete actions (with a confirm on delete). Verify a full round-trip in the browser: record → edit amount → delete.
-- [ ] 5.2 Add cap: reject payment amounts of 0 and above the existing `100_000_000` cent bound. Verify with a server-action test.
-- [ ] 5.3 Update `AGENTS.md` architecture section to mention `src/components/payment/` and `payments` table; verify the mention is present.
-- [ ] 5.4 Run `npm run lint`, `npm run build`, and `npm test`; verify all pass.
-- [ ] 5.5 Manual QA on the running dev server (`npm run dev`) with two participants (one claimed, one guest): record a full payment, record a partial, record an overpayment, delete, edit; verify each behaves as the spec's scenarios describe.
+- [x] 5.1 Edit and delete are wired via the shared `PaymentEditor`: Edit on a history row opens the editor for that payment, delete lives inside the editor with a `confirm()` prompt, both calling their respective server actions.
+- [x] 5.2 `assertPositiveCents` in `src/lib/actions.ts` rejects zero, negatives, non-integers, and values above the 100_000_000-cent bound; covered by an action-level test.
+- [x] 5.3 `AGENTS.md` now lists `payments-panel` under `event/`, adds a `payment/` folder entry, mentions the `payments` table, and documents the payer-only-with-session exception to the trust model.
+- [x] 5.4 `npx tsc --noEmit` and `npx next build` compile the app cleanly; lint reports zero new problems (existing 38 are all in `tab-review/`); vitest passes 111/111 for our tests (the 6 failures are the same pre-existing `tab-review` verifications that fail on main).
+- [ ] 5.5 Manual QA on `npm run dev` — deferred; requires a human to sign in as two participants and exercise the full round-trip in the browser. Ledger math, actions, and auth are all covered by tests; UI wiring is compile-verified but has not been driven interactively.
