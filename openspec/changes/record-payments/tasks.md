@@ -1,9 +1,9 @@
 ## 1. Schema and data access
 
-- [ ] 1.1 Add `payments` table to `src/db/schema.ts` with columns `id`, `eventId`, `fromParticipantId`, `toParticipantId`, `amountCents`, `note` (nullable), `createdAt`, plus an index on `eventId`; verify by running `npm run db:generate` and inspecting the generated migration for the new table + index.
-- [ ] 1.2 Add drizzle relations for `payments` (event, from-participant, to-participant); verify `npm run build` type-checks and no relation is unused.
-- [ ] 1.3 Run `npm run db:migrate` against `data/app.db`; verify the `payments` table exists via a sqlite inspection (e.g. `sqlite3 data/app.db ".schema payments"`).
-- [ ] 1.4 Add `getPaymentsForEvent(eventId)` in `src/lib/queries.ts` returning rows ordered by `createdAt` desc; verify with a unit test in `src/lib/__tests__/` that inserts and reads back payments for an event.
+- [x] 1.1 Add `payments` table to `src/db/schema.ts` with columns `id`, `eventId`, `fromParticipantId`, `toParticipantId`, `amountCents`, `note` (nullable), `createdAt`, plus an index on `eventId`; verify by running `npm run db:generate` and inspecting the generated migration for the new table + index.
+- [x] 1.2 Add drizzle relations for `payments` (event, from-participant, to-participant); verify `npm run build` type-checks and no relation is unused.
+- [x] 1.3 Run `npm run db:migrate` against `data/app.db`; verify the `payments` table exists via a sqlite inspection (e.g. `sqlite3 data/app.db ".schema payments"`).
+- [x] 1.4 Add `getPaymentsForEvent(eventId)` in `src/lib/queries.ts` returning rows ordered by `createdAt` desc; verify with a unit test in `src/lib/__tests__/` that inserts and reads back payments for an event.
 
 ## 2. Ledger math
 
