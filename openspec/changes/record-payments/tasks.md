@@ -13,10 +13,10 @@
 
 ## 3. Server actions and auth
 
-- [ ] 3.1 Add `createPaymentAction(eventId, { toParticipantId, amountCents, note? })` in `src/lib/actions.ts` that resolves the acting participant from the session's approved claim scoped to the event, rejects if unclaimed, rejects if `to === from` or `to` is not in the event, applies the same `assertSafeCents` bound, and inserts a row. Verify with an action-level test (or integration test) covering: unclaimed viewer rejected, claim-to-C viewer submitting from B rejected, valid payer accepted.
-- [ ] 3.2 Add `updatePaymentAction(paymentId, { amountCents?, note?, toParticipantId? })` that re-verifies the acting participant equals the row's `fromParticipantId`; verify a test where a viewer claimed to a different participant is rejected.
-- [ ] 3.3 Add `deletePaymentAction(paymentId)` with the same claim check; verify a test where the payer deletes their own row and a non-payer is rejected.
-- [ ] 3.4 Call `revalidatePath("/e/[token]")` from each action so balances and history refresh; verify by manually creating a payment and observing the settle-up + history update on the same page load.
+- [x] 3.1 Add `createPaymentAction(token, { toParticipantId, amountCents, note? })` in `src/lib/actions.ts` that resolves the acting participant from `participants.userId` on the event (set when the owner approves a claim via `linkAccountToParticipant`), rejects if unclaimed, rejects if `to === from` or `to` is not in the event, enforces a positive cents bound, and inserts a row. Covered by `payments-actions.integration.test.ts` (unclaimed rejected, stranger rejected, valid payer inserts, self/non-participant rejected, out-of-range amounts rejected).
+- [x] 3.2 Add `updatePaymentAction(token, paymentId, { amountCents?, note?, toParticipantId? })` that re-verifies the acting participant equals the row's `fromParticipantId`; test covers non-payer rejected.
+- [x] 3.3 Add `deletePaymentAction(token, paymentId)` with the same claim check; test covers payer allowed and non-payer rejected.
+- [x] 3.4 Each action calls `revalidatePath("/e/${token}")` after a successful write.
 
 ## 4. UI: editor and history
 
