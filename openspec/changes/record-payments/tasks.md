@@ -1,0 +1,35 @@
+## 1. Schema and data access
+
+- [ ] 1.1 Add `payments` table to `src/db/schema.ts` with columns `id`, `eventId`, `fromParticipantId`, `toParticipantId`, `amountCents`, `note` (nullable), `createdAt`, plus an index on `eventId`; verify by running `npm run db:generate` and inspecting the generated migration for the new table + index.
+- [ ] 1.2 Add drizzle relations for `payments` (event, from-participant, to-participant); verify `npm run build` type-checks and no relation is unused.
+- [ ] 1.3 Run `npm run db:migrate` against `data/app.db`; verify the `payments` table exists via a sqlite inspection (e.g. `sqlite3 data/app.db ".schema payments"`).
+- [ ] 1.4 Add `getPaymentsForEvent(eventId)` in `src/lib/queries.ts` returning rows ordered by `createdAt` desc; verify with a unit test in `src/lib/__tests__/` that inserts and reads back payments for an event.
+
+## 2. Ledger math
+
+- [ ] 2.1 Add `LedgerPayment` type and a `payments` parameter to `computeNetBalances` and `computeParticipantBreakdown` in `src/lib/ledger.ts`; fold `received − sent` into each participant's net. Verify with a new vitest case: A pays $60, B consumes $30, B records $30 payment → both nets are 0.
+- [ ] 2.2 Extend `computeParticipantBreakdown` to return a `payments` section listing payments sent and received for that participant; verify with a vitest case asserting the section is populated and totals reconcile with `netCents`.
+- [ ] 2.3 Add scenarios to the existing ledger flow test covering: partial payment reducing debt, overpayment flipping direction, deletion reversing effect. Verify `npm test` passes.
+
+## 3. Server actions and auth
+
+- [ ] 3.1 Add `createPaymentAction(eventId, { toParticipantId, amountCents, note? })` in `src/lib/actions.ts` that resolves the acting participant from the session's approved claim scoped to the event, rejects if unclaimed, rejects if `to === from` or `to` is not in the event, applies the same `assertSafeCents` bound, and inserts a row. Verify with an action-level test (or integration test) covering: unclaimed viewer rejected, claim-to-C viewer submitting from B rejected, valid payer accepted.
+- [ ] 3.2 Add `updatePaymentAction(paymentId, { amountCents?, note?, toParticipantId? })` that re-verifies the acting participant equals the row's `fromParticipantId`; verify a test where a viewer claimed to a different participant is rejected.
+- [ ] 3.3 Add `deletePaymentAction(paymentId)` with the same claim check; verify a test where the payer deletes their own row and a non-payer is rejected.
+- [ ] 3.4 Call `revalidatePath("/e/[token]")` from each action so balances and history refresh; verify by manually creating a payment and observing the settle-up + history update on the same page load.
+
+## 4. UI: editor and history
+
+- [ ] 4.1 Create `src/components/payment/payment-editor.tsx` (client component) with fields for recipient (dropdown of other participants), amount (money-input), and note (optional). The "from" field is read-only and shows the current claimed participant, or an inline "sign in and claim yourself as ..." nudge when unclaimed. Verify by rendering with a claimed viewer and with an unclaimed viewer.
+- [ ] 4.2 Create `src/components/event/record-payment-button.tsx` that opens the editor in free-form mode; verify it appears on the event page and opens the editor.
+- [ ] 4.3 Create `src/components/event/payment-history.tsx` listing payments for the event (sender → recipient · amount · note · relative time). Show edit/delete only when the viewer is claimed to the row's `from`. Verify rendering with mixed rows (viewer-owned and other) and confirm affordances match.
+- [ ] 4.4 Integrate `payment-history` and `record-payment-button` inline under `settle-up-list` in `src/app/e/[token]/page.tsx`; verify the layout in the browser.
+- [ ] 4.5 Extend `settle-up-list` so each suggested transfer row exposes a "Mark as paid" action that opens `payment-editor` pre-filled with the suggested recipient and amount, still editable. Verify: tapping the action opens the editor with correct pre-fill, and confirming records a payment that clears the suggestion.
+
+## 5. Integration + polish
+
+- [ ] 5.1 Wire edit and delete affordances on `payment-history` rows to the update/delete actions (with a confirm on delete). Verify a full round-trip in the browser: record → edit amount → delete.
+- [ ] 5.2 Add cap: reject payment amounts of 0 and above the existing `100_000_000` cent bound. Verify with a server-action test.
+- [ ] 5.3 Update `AGENTS.md` architecture section to mention `src/components/payment/` and `payments` table; verify the mention is present.
+- [ ] 5.4 Run `npm run lint`, `npm run build`, and `npm test`; verify all pass.
+- [ ] 5.5 Manual QA on the running dev server (`npm run dev`) with two participants (one claimed, one guest): record a full payment, record a partial, record an overpayment, delete, edit; verify each behaves as the spec's scenarios describe.
