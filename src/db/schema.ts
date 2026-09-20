@@ -236,12 +236,49 @@ export const expenseShares = sqliteTable(
   ],
 );
 
+export const payments = sqliteTable(
+  "payments",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    eventId: integer("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    fromParticipantId: integer("from_participant_id")
+      .notNull()
+      .references(() => participants.id, { onDelete: "restrict" }),
+    toParticipantId: integer("to_participant_id")
+      .notNull()
+      .references(() => participants.id, { onDelete: "restrict" }),
+    amountCents: integer("amount_cents").notNull(),
+    note: text("note"),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (t) => [index("payments_event_idx").on(t.eventId)],
+);
+
 export const eventsRelations = relations(events, ({ many, one }) => ({
   participants: many(participants),
   expenses: many(expenses),
+  payments: many(payments),
   owner: one(users, {
     fields: [events.ownerId],
     references: [users.id],
+  }),
+}));
+
+export const paymentsRelations = relations(payments, ({ one }) => ({
+  event: one(events, { fields: [payments.eventId], references: [events.id] }),
+  fromParticipant: one(participants, {
+    fields: [payments.fromParticipantId],
+    references: [participants.id],
+    relationName: "paymentsFrom",
+  }),
+  toParticipant: one(participants, {
+    fields: [payments.toParticipantId],
+    references: [participants.id],
+    relationName: "paymentsTo",
   }),
 }));
 

@@ -2,6 +2,7 @@ import {
   getEventByToken,
   getExpenses,
   getGroupsForEvent,
+  getPaymentsForEvent,
   getPendingClaims,
   claimedParticipantIdsForUser,
 } from "@/lib/queries";
@@ -11,6 +12,7 @@ import {
   computeParticipantBreakdown,
   type LedgerParticipant,
   type LedgerExpense,
+  type LedgerPayment,
 } from "@/lib/ledger";
 import { addParticipantAction } from "@/lib/actions";
 import { getSessionUser } from "@/lib/auth";
@@ -24,7 +26,7 @@ import {
 } from "@/components/event/balance-list";
 import type { ParticipantBreakdownView } from "@/components/event/balance-breakdown";
 import { ClaimRequests } from "@/components/event/claim-requests";
-import { SettleUpList } from "@/components/event/settle-up-list";
+import { PaymentsPanel } from "@/components/event/payments-panel";
 import { ReceiptList, type ReceiptCardData } from "@/components/event/receipt-list";
 import { GroupManager } from "@/components/event/group-manager";
 import { UnassignedWarnings } from "@/components/event/unassigned-warnings";
@@ -59,11 +61,12 @@ export default async function EventPage({
   const isOwner = viewer != null && detail.event.ownerId === viewer.id;
 
   const { event, participants: people } = detail;
-  const [expenseRows, pendingClaims, viewerClaimedIds, eventGroups] = await Promise.all([
+  const [expenseRows, pendingClaims, viewerClaimedIds, eventGroups, paymentRows] = await Promise.all([
     getExpenses(event.id),
     isOwner ? getPendingClaims(event.id) : Promise.resolve([]),
     viewer ? claimedParticipantIdsForUser(event.id, viewer.id) : Promise.resolve(new Set<number>()),
     getGroupsForEvent(event.id),
+    getPaymentsForEvent(event.id),
   ]);
   const groupMembersById = new Map(eventGroups.map((g) => [g.id, g.memberIds]));
   const groupMemberLookup = (groupId: number) => groupMembersById.get(groupId) ?? [];
@@ -91,8 +94,13 @@ export default async function EventPage({
     })),
   }));
 
-  const nets = computeNetBalances(people, ledgerExpenses, groupMemberLookup);
+  // PaymentRow is structurally a LedgerPayment (extra eventId is ignored).
+  const ledgerPayments: LedgerPayment[] = paymentRows;
+  const nets = computeNetBalances(people, ledgerExpenses, groupMemberLookup, ledgerPayments);
   const transfers = simplifyDebts(nets);
+  const viewerParticipantId = viewer
+    ? (people.find((p) => p.userId === viewer.id)?.id ?? null)
+    : null;
   const nameOf = new Map(people.map((p) => [p.id, p.userDisplayName ?? p.name]));
   const grandTotal = expenseRows.reduce((sum, r) => sum + r.expense.totalCents, 0);
   const warnings = unassignedItemWarnings(expenseRows);
@@ -152,6 +160,7 @@ export default async function EventPage({
       ledgerExpenses,
       p.id,
       groupMemberLookup,
+      ledgerPayments,
     );
     breakdowns.set(p.id, {
       items: b.items.map((i) => ({ ...i })),
@@ -191,7 +200,15 @@ export default async function EventPage({
 
       <UnassignedWarnings warnings={warnings} />
 
-      <SettleUpList transfers={transfers} nameOf={nameOf} />
+      <PaymentsPanel
+        token={token}
+        transfers={transfers}
+        history={paymentRows}
+        participants={people.map((p) => ({ id: p.id, displayName: p.userDisplayName ?? p.name }))}
+        nameOf={nameOf}
+        viewerParticipantId={viewerParticipantId}
+        claimHref={`/signin?next=${encodeURIComponent(`/e/${token}`)}`}
+      />
 
       <ReceiptList token={token} receipts={receipts} nameOf={nameOf} />
 

@@ -36,6 +36,13 @@
       "when": 1788326154954,
       "tag": "0004_typical_redwing",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1789938107453,
+      "tag": "0005_high_the_anarchist",
+      "breakpoints": true
     }
   ]
 }

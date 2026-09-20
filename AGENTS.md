@@ -23,7 +23,7 @@ receipts, and the ledger nets everything out to the fewest transfers.
 - `src/lib/queries.ts` — read queries; `src/lib/actions.ts` — server actions
   (create event, add participant, save/update/delete expense).
 - `src/db/schema.ts` — drizzle schema (events, participants, expenses,
-  line_items, line_item_shares). SQLite via better-sqlite3, WAL mode.
+  line_items, line_item_shares, payments). SQLite via better-sqlite3, WAL mode.
 - `src/lib/receipt-parse.ts` + `src/lib/image-preprocess.ts` — on-device
   receipt OCR (tesseract.js, client-side only).
 - `src/components/` — UI lives here, not in route files; pages fetch data and
@@ -33,8 +33,12 @@ receipts, and the ledger nets everything out to the fewest transfers.
     `chip-toggle-group`, `copy-link-button`, `reveal`). If a pattern repeats,
     it goes here.
   - `event/` — dashboard sections (`event-header`, `balance-list`,
-    `claim-requests`, `settle-up-list`, `receipt-list`, `unassigned-warnings`,
+    `claim-requests`, `payments-panel` (settle-up suggestions + record-payment
+    entry point + payment history), `receipt-list`, `unassigned-warnings`,
     `delete-tab-button`).
+  - `payment/` — `payment-editor` (client component driving create/edit/delete
+    against `createPaymentAction` etc.). Payment writes are payer-only: a
+    signed-in viewer whose user is linked to a participant on the event.
   - `expense/` — `expense-editor.tsx` (the shared new/edit expense form, client
     component; exports `EditorItem`/`EditorParticipant`) plus
     `split-mode-selector`, `line-item-row`, `new-expense-flow` (wraps the editor
@@ -58,8 +62,12 @@ receipts, and the ledger nets everything out to the fewest transfers.
   `input-ink`, `btn-ink`, `btn-ghost`. Use these instead of one-off styles;
   Tailwind v4 `@theme inline` maps them to `bg-paper`, `text-accent`, etc.
 - Server components by default; `"use client"` only where state is needed.
-- Event access is the share token — there is no auth. Don't add endpoints that
-  assume a user session.
+- Event access is the share token — there is no auth for viewing or for expense
+  writes. The one exception is payment records: `createPaymentAction`,
+  `updatePaymentAction`, and `deletePaymentAction` require a signed-in viewer
+  whose user is linked to a participant on the event, and derive the "from"
+  side from the session (never the client). Don't broaden this pattern to
+  other endpoints without a similar rationale.
 
 ## Testing
 
