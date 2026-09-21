@@ -17,6 +17,7 @@ import { addParticipantAction } from "@/lib/actions";
 import { getSessionUser } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import { EventHeader } from "@/components/event/event-header";
+import { ViewerSummary } from "@/components/event/viewer-summary";
 import DeleteTabButton from "@/components/event/delete-tab-button";
 import {
   BalanceList,
@@ -167,59 +168,80 @@ export default async function EventPage({
     });
   }
 
+  const viewerParticipant = viewer ? people.find((p) => p.userId === viewer.id) : undefined;
+  const viewerNetCents = viewerParticipant ? nets.get(viewerParticipant.id) ?? 0 : 0;
+  const viewerTransferCount = viewerParticipant
+    ? transfers.filter(
+        (t) => t.fromId === viewerParticipant.id || t.toId === viewerParticipant.id,
+      ).length
+    : 0;
+
   return (
-    <main className="mx-auto w-full max-w-2xl flex-1 px-6 pt-8 pb-20">
-      <EventHeader
-        token={token}
-        eventName={event.name}
-        viewerSignedIn={viewer != null}
-        receiptCount={expenseRows.length}
-        grandTotalCents={grandTotal}
-      />
+    <main className="mx-auto w-full max-w-6xl flex-1 px-6 pt-8 pb-20 lg:grid lg:grid-cols-[3fr_2fr] lg:gap-8">
+      {/* --- sidebar (order-first on mobile so balances come before receipts) --- */}
+      <div className="order-first lg:order-none lg:sticky lg:top-20 lg:col-start-2 lg:row-start-1 lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
+        <BalanceList
+          token={token}
+          people={balancePeople}
+          nets={nets}
+          pendingClaims={claimRows}
+          viewerClaimedIds={viewerClaimedIds}
+          viewer={viewer ? { id: viewer.id, displayName: viewer.displayName } : null}
+          addAction={addParticipantAction}
+          breakdowns={breakdowns}
+        />
 
-      {errorMessage && <ErrorNote variant="page">{errorMessage}</ErrorNote>}
+        <ClaimRequests token={token} claims={claimRows} guestNameOf={guestNameOf} />
 
-      <BalanceList
-        token={token}
-        people={balancePeople}
-        nets={nets}
-        pendingClaims={claimRows}
-        viewerClaimedIds={viewerClaimedIds}
-        viewer={viewer ? { id: viewer.id, displayName: viewer.displayName } : null}
-        addAction={addParticipantAction}
-        breakdowns={breakdowns}
-      />
+        <SettleUpList transfers={transfers} nameOf={nameOf} id="settle-up" />
 
-      <ClaimRequests token={token} claims={claimRows} guestNameOf={guestNameOf} />
+        <section className="mt-12">
+          <SectionHeading>Groups</SectionHeading>
+          <p className="mt-2 mb-4 font-mono text-[11px] leading-relaxed text-stone-400">
+            Reusable sets of people you can split a receipt by. Editing members re-scopes past
+            receipts that use the group.
+          </p>
+          <GroupManager
+            token={token}
+            eventName={event.name}
+            participants={people.map((p) => ({ id: p.id, name: p.userDisplayName ?? p.name }))}
+            groups={eventGroups}
+          />
+        </section>
 
-      <UnassignedWarnings warnings={warnings} />
+        {isOwner && (
+          <section className="mt-12">
+            <SectionHeading>Actions</SectionHeading>
+            <div className="mt-4">
+              <DeleteTabButton token={token} eventName={event.name} />
+            </div>
+          </section>
+        )}
+      </div>
 
-      <SettleUpList transfers={transfers} nameOf={nameOf} />
-
-      <ReceiptList token={token} receipts={receipts} nameOf={nameOf} />
-
-      <section className="mt-12">
-        <SectionHeading>Groups</SectionHeading>
-        <p className="mt-2 mb-4 font-mono text-[11px] leading-relaxed text-stone-400">
-          Reusable sets of people you can split a receipt by. Editing members re-scopes past
-          receipts that use the group.
-        </p>
-        <GroupManager
+      {/* --- main column --- */}
+      <div className="lg:col-start-1 lg:row-start-1">
+        <EventHeader
           token={token}
           eventName={event.name}
-          participants={people.map((p) => ({ id: p.id, name: p.userDisplayName ?? p.name }))}
-          groups={eventGroups}
+          viewerSignedIn={viewer != null}
+          receiptCount={expenseRows.length}
+          grandTotalCents={grandTotal}
         />
-      </section>
 
-      {isOwner && (
-        <section className="mt-12">
-          <SectionHeading>Actions</SectionHeading>
-          <div className="mt-4">
-            <DeleteTabButton token={token} eventName={event.name} />
-          </div>
-        </section>
-      )}
+        <ViewerSummary
+          viewerParticipantId={viewerParticipant?.id ?? null}
+          netCents={viewerNetCents}
+          transferCount={viewerTransferCount}
+          settleUpId="settle-up"
+        />
+
+        {errorMessage && <ErrorNote variant="page">{errorMessage}</ErrorNote>}
+
+        <UnassignedWarnings warnings={warnings} />
+
+        <ReceiptList token={token} receipts={receipts} nameOf={nameOf} />
+      </div>
     </main>
   );
 }

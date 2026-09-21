@@ -10,12 +10,14 @@ export interface TransferRow {
 export function SettleUpList({
   transfers,
   nameOf,
+  id,
 }: {
   transfers: TransferRow[];
   nameOf: Map<number, string>;
+  id?: string;
 }) {
   return (
-    <section className="mt-12">
+    <section id={id} className="mt-12">
       <SectionHeading>Settle up</SectionHeading>
       {transfers.length === 0 ? (
         <div className="receipt-card receipt-lined mt-4 p-8 pb-9 text-center">
