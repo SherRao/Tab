@@ -189,14 +189,14 @@ export default async function EventPage({
 
       {errorMessage && <ErrorNote variant="page">{errorMessage}</ErrorNote>}
 
-      <div className="mt-8 lg:grid lg:grid-cols-[1fr_minmax(280px,340px)] lg:gap-8">
+      <div className="mt-8 lg:grid lg:grid-cols-[1fr_minmax(340px,420px)] lg:gap-10">
         <div>
           <UnassignedWarnings warnings={warnings} />
 
           <ReceiptList token={token} receipts={receipts} nameOf={nameOf} />
         </div>
 
-        <aside className="lg:sticky lg:top-8 lg:self-start lg:max-h-[calc(100vh-4rem)] lg:overflow-y-auto">
+        <aside>
           <ViewerSummary
             viewer={viewer ? { id: viewer.id } : null}
             viewerParticipantId={viewerParticipantId}

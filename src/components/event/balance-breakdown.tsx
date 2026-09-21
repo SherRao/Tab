@@ -163,23 +163,23 @@ export function BalanceBreakdown({
 
   return (
     <>
-      <div className="flex items-center justify-between">
-        {left}
-        <div className="flex items-center gap-2">
-          {right}
+      <button
+        type="button"
+        onClick={netCents !== 0 ? () => setOpen((v) => !v) : undefined}
+        className="group/row flex w-full items-center justify-between text-left"
+        aria-expanded={netCents !== 0 ? open : undefined}
+        aria-controls={netCents !== 0 ? `breakdown-${participantId}` : undefined}
+      >
+        <span className="flex min-w-0 items-center gap-1">
+          {left}
           {netCents !== 0 && (
-            <button
-              type="button"
-              onClick={() => setOpen((v) => !v)}
-              className="label-mono text-[11px] text-stone-400 transition hover:text-accent-strong hover:underline flex items-center gap-1"
-              aria-expanded={open}
-              aria-controls={`breakdown-${participantId}`}
-            >
-              {open ? "▲" : "▼"} breakdown
-            </button>
+            <span className="text-[10px] text-stone-300 opacity-0 transition group-hover/row:opacity-100">
+              {open ? "▲" : "▼"}
+            </span>
           )}
-        </div>
-      </div>
+        </span>
+        {right}
+      </button>
       {open && (
         <div id={`breakdown-${participantId}`} className="mt-2">
           <BreakdownPanel breakdown={breakdown} />

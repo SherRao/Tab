@@ -72,7 +72,7 @@ export function BalanceList({
           const breakdown = breakdowns.get(p.id);
 
           return (
-            <li key={p.id} className="py-2.5">
+            <li key={p.id} className="group/balance py-2.5">
               <BalanceBreakdown
                 participantId={p.id}
                 netCents={net}
@@ -111,7 +111,7 @@ export function BalanceList({
                 }
               />
               {state === "guest" && viewer && viewer.id !== p.userId && (
-                <div className="mt-1 pl-[18px]">
+                <div className="mt-1 pl-[18px] opacity-0 transition-opacity group-hover/balance:opacity-100 focus-within:opacity-100">
                   {pendingByParticipant.has(p.id) ? (
                     <span className="label-mono text-[11px] text-stone-400">
                       claim requested — waiting on{" "}
