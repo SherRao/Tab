@@ -743,8 +743,8 @@ describe("computeParticipantBreakdown parity", () => {
       { fromParticipantId: 2, toParticipantId: 1, amountCents: 1000, note: "cash" },
       { fromParticipantId: 2, toParticipantId: 1, amountCents: 500, note: null },
     ];
-    const bAlice = computeParticipantBreakdown([alice, bob, carol], expenses, 1, undefined, payments);
-    const bBob = computeParticipantBreakdown([alice, bob, carol], expenses, 2, undefined, payments);
+    const bAlice = computeParticipantBreakdown([alice, bob, carol], expenses, 1, undefined, undefined, payments);
+    const bBob = computeParticipantBreakdown([alice, bob, carol], expenses, 2, undefined, undefined, payments);
     expect(bAlice.paymentsReceived.map((p) => p.amountCents)).toEqual([1000, 500]);
     expect(bAlice.paymentsSent).toEqual([]);
     expect(bAlice.totalPaymentsReceivedCents).toBe(1500);

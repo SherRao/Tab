@@ -7,6 +7,7 @@ import {
   claimedParticipantIdsForUser,
 } from "@/lib/queries";
 import {
+  computeConsumption,
   computeNetBalances,
   simplifyDebts,
   computeParticipantBreakdown,
@@ -154,6 +155,7 @@ export default async function EventPage({
     name: p.userDisplayName ?? p.name,
   }));
 
+  const consumption = computeConsumption(ledgerParticipants, ledgerExpenses, groupMemberLookup);
   const breakdowns = new Map<number, ParticipantBreakdownView>();
   for (const p of people) {
     const b = computeParticipantBreakdown(
@@ -161,6 +163,7 @@ export default async function EventPage({
       ledgerExpenses,
       p.id,
       groupMemberLookup,
+      consumption,
       ledgerPayments,
     );
     breakdowns.set(p.id, {

@@ -198,7 +198,7 @@ function resolveShares(
   return Array.from(byId, ([participantId, consumedCents]) => ({ participantId, consumedCents }));
 }
 
-interface Consumption {
+export interface Consumption {
   paidCents: Map<number, number>;
   consumedCents: Map<number, number>;
   taxShareCents: Map<number, number>;
@@ -206,7 +206,7 @@ interface Consumption {
   otherExtrasShareCents: Map<number, number>;
 }
 
-function computeConsumption(
+export function computeConsumption(
   participants: LedgerParticipant[],
   expenses: LedgerExpense[],
   groupMemberLookup: (groupId: number) => number[] = () => [],
@@ -447,9 +447,10 @@ export function computeParticipantBreakdown(
   expenses: LedgerExpense[],
   participantId: number,
   groupMemberLookup: (groupId: number) => number[] = () => [],
+  precomputed?: Consumption,
   payments: LedgerPayment[] = [],
 ): ParticipantBreakdown {
-  const consumption = computeConsumption(participants, expenses, groupMemberLookup);
+  const consumption = precomputed ?? computeConsumption(participants, expenses, groupMemberLookup);
   const paid = consumption.paidCents.get(participantId) ?? 0;
   const consumed = consumption.consumedCents.get(participantId) ?? 0;
 
