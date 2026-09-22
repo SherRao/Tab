@@ -1,6 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import os from "node:os";
-import path from "node:path";
+import { hasDb } from "./test-db";
 import { eq } from "drizzle-orm";
 
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
@@ -12,7 +11,6 @@ const redirectError = vi.fn((url: string) => {
 });
 vi.mock("next/navigation", () => ({ redirect: (url: string) => redirectError(url) }));
 
-process.env.DATABASE_URL = `file:${path.join(os.tmpdir(), `delete-event-test-${Date.now()}-${process.pid}.db`)}`;
 
 let queries: typeof import("@/lib/queries");
 let actions: typeof import("@/lib/actions");
@@ -38,9 +36,10 @@ vi.mock("@/lib/auth", async (importOriginal) => {
   };
 });
 
-beforeAll(async () => {
+
+beforeAll(async () => { if (!hasDb) return;
   dbModule = await import("@/db");
-  dbModule.runMigrations();
+  await dbModule.runMigrations();
   queries = await import("@/lib/queries");
   actions = await import("@/lib/actions");
   schema = await import("@/db/schema");
@@ -58,7 +57,7 @@ beforeAll(async () => {
   sessionUserId = ownerId;
 });
 
-describe("deleteEventAction", () => {
+describe.skipIf(!hasDb)("deleteEventAction", () => {
   it("owner deletes event: cascades all dependent data and kills the share link", async () => {
     const { event } = await queries.createEventRecord(
       "Trip to delete",

@@ -1,21 +1,20 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import os from "node:os";
-import path from "node:path";
+import { hasDb } from "./test-db";
 
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 
-process.env.DATABASE_URL = `file:${path.join(os.tmpdir(), `auth-test-${Date.now()}-${process.pid}.db`)}`;
 
 let auth: typeof import("@/lib/auth");
 let dbModule: typeof import("@/db");
 
-beforeAll(async () => {
+
+beforeAll(async () => { if (!hasDb) return;
   dbModule = await import("@/db");
-  dbModule.runMigrations();
+  await dbModule.runMigrations();
   auth = await import("@/lib/auth");
 });
 
-describe("magic-link tokens", () => {
+describe.skipIf(!hasDb)("magic-link tokens", () => {
   it("hashes tokens so raw values are never stored", async () => {
     const token = auth.generateToken();
     const hash = auth.hashToken(token);

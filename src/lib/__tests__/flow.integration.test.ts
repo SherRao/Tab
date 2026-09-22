@@ -1,13 +1,11 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
+import { hasDb } from "./test-db";
 import { hydrateTotalShares } from "@/lib/expense-hydrate";
-import os from "node:os";
-import path from "node:path";
 
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 const redirectMock = vi.fn();
 vi.mock("next/navigation", () => ({ redirect: (url: string) => redirectMock(url) }));
 
-process.env.DATABASE_URL = `file:${path.join(os.tmpdir(), `flow-test-${Date.now()}-${process.pid}.db`)}`;
 
 let queries: typeof import("@/lib/queries");
 let actions: typeof import("@/lib/actions");
@@ -64,9 +62,9 @@ function toLedger(
   );
 }
 
-beforeAll(async () => {
+beforeAll(async () => { if (!hasDb) return;
   const dbModule = await import("@/db");
-  dbModule.runMigrations();
+  await dbModule.runMigrations();
   queries = await import("@/lib/queries");
   actions = await import("@/lib/actions");
   ledger = await import("@/lib/ledger");
@@ -80,7 +78,7 @@ beforeAll(async () => {
   ownerId = user.id;
 });
 
-describe("full event flow", () => {
+describe.skipIf(!hasDb)("full event flow", () => {
   it("creates an event when the creator adds one other participant", async () => {
     const form = new FormData();
     form.set("name", "Two people");

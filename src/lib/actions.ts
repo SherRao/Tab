@@ -205,12 +205,7 @@ export interface ExpensePayload {
   }[];
 }
 
-/**
- * Insert `expense_shares`, resolving item-scoped weights to the line item ids
- * created for this save. `itemIndex` indexes `payload.items`.
- * Runs inside a `db.transaction`, so it uses the synchronous builders.
- */
-function insertExpenseShares(
+async function insertExpenseShares(
   tx: Pick<typeof db, "insert">,
   expenseId: number,
   shares: ExpensePayload["shares"],
@@ -228,7 +223,7 @@ function insertExpenseShares(
       throw new Error("Share references a group that is not in this event");
     }
   }
-  tx.insert(expenseShares)
+  await tx.insert(expenseShares)
     .values(
       shares.map((s) => ({
         expenseId,
@@ -239,8 +234,7 @@ function insertExpenseShares(
         weightType: s.weightType,
         weightValue: s.weightValue,
       })),
-    )
-    .run();
+    );
 }
 
 export async function saveExpenseAction(token: string, payload: ExpensePayload) {
@@ -278,8 +272,8 @@ export async function saveExpenseAction(token: string, payload: ExpensePayload) 
 
   const validGroupIds = new Set((await getGroupsForEvent(detail.event.id)).map((g) => g.id));
 
-  db.transaction((tx) => {
-    const [expense] = tx
+  await db.transaction(async (tx) => {
+    const [expense] = await tx
       .insert(expenses)
       .values({
         eventId: detail.event.id,
@@ -290,13 +284,11 @@ export async function saveExpenseAction(token: string, payload: ExpensePayload) 
         totalCents: payload.totalCents,
         splitMode: payload.splitMode,
       })
-      .returning()
-      .all();
+      .returning();
 
-    // Line items first: shares scoped to an item need the item's real id.
     const lineItemIds: number[] = [];
     for (const item of payload.items) {
-      const [row] = tx
+      const [row] = await tx
         .insert(lineItems)
         .values({
           expenseId: expense.id,
@@ -304,23 +296,21 @@ export async function saveExpenseAction(token: string, payload: ExpensePayload) 
           amountCents: item.amountCents,
           quantity: item.quantity ?? 0,
         })
-        .returning()
-        .all();
+        .returning();
       lineItemIds.push(row.id);
       const shares = [...new Set(item.participantIds)].filter((id) => validIds.has(id));
       if (shares.length) {
         const pq = item.participantQuantities ?? {};
-        tx.insert(lineItemShares)
+        await tx.insert(lineItemShares)
           .values(shares.map((participantId) => ({
             lineItemId: row.id,
             participantId,
             quantity: pq[participantId] ?? 1,
-          })))
-          .run();
+          })));
       }
     }
 
-    insertExpenseShares(tx, expense.id, payload.shares, lineItemIds, validIds, validGroupIds);
+    await insertExpenseShares(tx, expense.id, payload.shares, lineItemIds, validIds, validGroupIds);
   });
 
   revalidatePath(`/e/${token}`);
@@ -369,8 +359,8 @@ export async function updateExpenseAction(
 
   const validGroupIds = new Set((await getGroupsForEvent(detail.event.id)).map((g) => g.id));
 
-  db.transaction((tx) => {
-    tx.update(expenses)
+  await db.transaction(async (tx) => {
+    await tx.update(expenses)
       .set({
         payerId: payload.payerId,
         description: payload.description,
@@ -379,52 +369,45 @@ export async function updateExpenseAction(
         totalCents: payload.totalCents,
         splitMode: payload.splitMode,
       })
-      .where(eq(expenses.id, expenseId))
-      .run();
+      .where(eq(expenses.id, expenseId));
 
-    tx.delete(expenseShares).where(eq(expenseShares.expenseId, expenseId)).run();
+    await tx.delete(expenseShares).where(eq(expenseShares.expenseId, expenseId));
 
-    // Replace line items before re-inserting shares, so item-scoped shares can
-    // point at the new line item ids.
-    const oldItems = tx
+    const oldItems = await tx
       .select({ id: lineItems.id })
       .from(lineItems)
-      .where(eq(lineItems.expenseId, expenseId))
-      .all();
+      .where(eq(lineItems.expenseId, expenseId));
     if (oldItems.length) {
-      tx.delete(lineItemShares)
+      await tx.delete(lineItemShares)
         .where(
           inArray(
             lineItemShares.lineItemId,
             oldItems.map((i) => i.id),
           ),
-        )
-        .run();
-      tx.delete(lineItems).where(eq(lineItems.expenseId, expenseId)).run();
+        );
+      await tx.delete(lineItems).where(eq(lineItems.expenseId, expenseId));
     }
 
     const lineItemIds: number[] = [];
     for (const item of payload.items) {
-      const [row] = tx
+      const [row] = await tx
         .insert(lineItems)
         .values({ expenseId, name: item.name, amountCents: item.amountCents, quantity: item.quantity ?? 0 })
-        .returning()
-        .all();
+        .returning();
       lineItemIds.push(row.id);
       const shares = [...new Set(item.participantIds)].filter((id) => validIds.has(id));
       if (shares.length) {
         const pq = item.participantQuantities ?? {};
-        tx.insert(lineItemShares)
+        await tx.insert(lineItemShares)
           .values(shares.map((participantId) => ({
             lineItemId: row.id,
             participantId,
             quantity: pq[participantId] ?? 1,
-          })))
-          .run();
+          })));
       }
     }
 
-    insertExpenseShares(tx, expenseId, payload.shares, lineItemIds, validIds, validGroupIds);
+    await insertExpenseShares(tx, expenseId, payload.shares, lineItemIds, validIds, validGroupIds);
   });
 
   revalidatePath(`/e/${token}`);
@@ -453,12 +436,10 @@ export async function deleteEventAction(token: string) {
     redirect(`/e/${token}?deleteError=${DELETE_ERROR_ONLY_OWNER}`);
   }
 
-  // expenses.payerId is ON DELETE RESTRICT (src/db/schema.ts), so dependents
-  // must be removed before the event cascade reaches participants.
-  db.transaction((tx) => {
-    tx.delete(expenses).where(eq(expenses.eventId, detail.event.id)).run();
-    tx.delete(participants).where(eq(participants.eventId, detail.event.id)).run();
-    tx.delete(events).where(eq(events.id, detail.event.id)).run();
+  await db.transaction(async (tx) => {
+    await tx.delete(expenses).where(eq(expenses.eventId, detail.event.id));
+    await tx.delete(participants).where(eq(participants.eventId, detail.event.id));
+    await tx.delete(events).where(eq(events.id, detail.event.id));
   });
   revalidatePath("/");
   revalidatePath("/tabs");

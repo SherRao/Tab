@@ -1,52 +1,52 @@
 {
   "version": "7",
-  "dialect": "sqlite",
+  "dialect": "postgresql",
   "entries": [
     {
       "idx": 0,
-      "version": "6",
+      "version": "7",
       "when": 1787639084187,
       "tag": "0000_abnormal_ronan",
       "breakpoints": true
     },
     {
       "idx": 1,
-      "version": "6",
+      "version": "7",
       "when": 1788312622244,
       "tag": "0001_redundant_nemesis",
       "breakpoints": true
     },
     {
       "idx": 2,
-      "version": "6",
+      "version": "7",
       "when": 1788322945147,
       "tag": "0002_living_shinobi_shaw",
       "breakpoints": true
     },
     {
       "idx": 3,
-      "version": "6",
+      "version": "7",
       "when": 1788323054416,
       "tag": "0003_tricky_satana",
       "breakpoints": true
     },
     {
       "idx": 4,
-      "version": "6",
+      "version": "7",
       "when": 1788326154954,
       "tag": "0004_typical_redwing",
       "breakpoints": true
     },
     {
       "idx": 5,
-      "version": "6",
+      "version": "7",
       "when": 1789938107453,
       "tag": "0005_high_the_anarchist",
       "breakpoints": true
     },
     {
       "idx": 6,
-      "version": "6",
+      "version": "7",
       "when": 1790050718782,
       "tag": "0006_slimy_korvac",
       "breakpoints": true

@@ -1,6 +1,12 @@
 import "dotenv/config";
-import { db, runMigrations } from "./index";
+import { runMigrations } from "./index";
 
-runMigrations();
-console.log("Migrations applied.");
-void db.$client.close();
+runMigrations()
+  .then(() => {
+    console.log("Migrations applied.");
+    process.exit(0);
+  })
+  .catch((err) => {
+    console.error("Migration failed:", err);
+    process.exit(1);
+  });
