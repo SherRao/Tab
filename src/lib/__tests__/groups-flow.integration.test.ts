@@ -1,13 +1,10 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import os from "node:os";
 import { hydrateSelectedGroupIds, hydrateTotalShares } from "@/lib/expense-hydrate";
-import path from "node:path";
 
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 const redirectMock = vi.fn();
 vi.mock("next/navigation", () => ({ redirect: (url: string) => redirectMock(url) }));
 
-process.env.DATABASE_URL = `file:${path.join(os.tmpdir(), `groups-test-${Date.now()}-${process.pid}.db`)}`;
 
 let queries: typeof import("@/lib/queries");
 let actions: typeof import("@/lib/actions");
@@ -27,7 +24,7 @@ vi.mock("@/lib/auth", async (importOriginal) => {
 
 beforeAll(async () => {
   const dbModule = await import("@/db");
-  dbModule.runMigrations();
+  await dbModule.runMigrations();
   queries = await import("@/lib/queries");
   actions = await import("@/lib/actions");
   ledger = await import("@/lib/ledger");

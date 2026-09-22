@@ -1,6 +1,4 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import os from "node:os";
-import path from "node:path";
 import { eq } from "drizzle-orm";
 
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
@@ -9,7 +7,6 @@ const redirectMock = vi.fn((url: string) => {
 });
 vi.mock("next/navigation", () => ({ redirect: (url: string) => redirectMock(url) }));
 
-process.env.DATABASE_URL = `file:${path.join(os.tmpdir(), `payments-actions-${Date.now()}-${process.pid}.db`)}`;
 
 let currentUser: { id: number; email: string; username: string; displayName: string } | null = null;
 vi.mock("@/lib/auth", async (importOriginal) => {
@@ -39,7 +36,7 @@ async function seedUser(email: string, username: string) {
 
 beforeAll(async () => {
   dbModule = await import("@/db");
-  dbModule.runMigrations();
+  await dbModule.runMigrations();
   schema = await import("@/db/schema");
   actions = await import("@/lib/actions");
   queries = await import("@/lib/queries");

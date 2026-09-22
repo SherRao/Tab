@@ -1,23 +1,21 @@
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import { migrate } from "drizzle-orm/better-sqlite3/migrator";
-import Database from "better-sqlite3";
-import fs from "node:fs";
+import { drizzle } from "drizzle-orm/postgres-js";
+import { migrate } from "drizzle-orm/postgres-js/migrator";
+import postgres from "postgres";
 import path from "node:path";
+import fs from "node:fs";
 import * as schema from "./schema";
 
-const url = process.env.DATABASE_URL ?? "file:./data/app.db";
-const dbPath = url.replace(/^file:/, "");
-fs.mkdirSync(path.dirname(path.resolve(dbPath)), { recursive: true });
+const connectionString = process.env.POSTGRES_URL ?? process.env.DATABASE_URL;
+if (!connectionString) {
+  throw new Error("POSTGRES_URL (or DATABASE_URL) environment variable is required");
+}
 
-const sqlite = new Database(dbPath);
-sqlite.pragma("journal_mode = WAL");
-sqlite.pragma("foreign_keys = ON");
+const client = postgres(connectionString);
+export const db = drizzle(client, { schema });
 
-export const db = drizzle(sqlite, { schema });
-
-export function runMigrations() {
+export async function runMigrations() {
   const migrationsFolder = path.resolve("drizzle");
   if (fs.existsSync(migrationsFolder)) {
-    migrate(db, { migrationsFolder });
+    await migrate(db, { migrationsFolder });
   }
 }

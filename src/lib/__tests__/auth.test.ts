@@ -1,17 +1,14 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import os from "node:os";
-import path from "node:path";
 
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 
-process.env.DATABASE_URL = `file:${path.join(os.tmpdir(), `auth-test-${Date.now()}-${process.pid}.db`)}`;
 
 let auth: typeof import("@/lib/auth");
 let dbModule: typeof import("@/db");
 
 beforeAll(async () => {
   dbModule = await import("@/db");
-  dbModule.runMigrations();
+  await dbModule.runMigrations();
   auth = await import("@/lib/auth");
 });
 

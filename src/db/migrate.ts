@@ -1,6 +1,6 @@
 import "dotenv/config";
-import { db, runMigrations } from "./index";
+import { runMigrations } from "./index";
 
-runMigrations();
+await runMigrations();
 console.log("Migrations applied.");
-void db.$client.close();
+process.exit(0);

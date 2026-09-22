@@ -1,20 +1,15 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import os from "node:os";
-import path from "node:path";
 
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 vi.mock("next/navigation", () => ({ redirect: () => {} }));
-
-process.env.DATABASE_URL = `file:${path.join(os.tmpdir(), `payments-queries-${Date.now()}-${process.pid}.db`)}`;
 
 let queries: typeof import("@/lib/queries");
 let dbModule: typeof import("@/db");
 let schema: typeof import("@/db/schema");
 
 beforeAll(async () => {
-  const { migrate } = await import("drizzle-orm/better-sqlite3/migrator");
   dbModule = await import("@/db");
-  await migrate(dbModule.db, { migrationsFolder: "./drizzle" });
+  await dbModule.runMigrations();
   queries = await import("@/lib/queries");
   schema = await import("@/db/schema");
 });
