@@ -6,13 +6,15 @@ vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 let auth: typeof import("@/lib/auth");
 let dbModule: typeof import("@/db");
 
-beforeAll(async () => {
+
+const hasDb = !!(process.env.POSTGRES_URL || process.env.DATABASE_URL);
+beforeAll(async () => { if (!hasDb) return;
   dbModule = await import("@/db");
   await dbModule.runMigrations();
   auth = await import("@/lib/auth");
 });
 
-describe("magic-link tokens", () => {
+describe.skipIf(!hasDb)("magic-link tokens", () => {
   it("hashes tokens so raw values are never stored", async () => {
     const token = auth.generateToken();
     const hash = auth.hashToken(token);

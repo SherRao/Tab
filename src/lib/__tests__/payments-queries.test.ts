@@ -7,14 +7,15 @@ let queries: typeof import("@/lib/queries");
 let dbModule: typeof import("@/db");
 let schema: typeof import("@/db/schema");
 
-beforeAll(async () => {
+const hasDb = !!(process.env.POSTGRES_URL || process.env.DATABASE_URL);
+beforeAll(async () => { if (!hasDb) return;
   dbModule = await import("@/db");
   await dbModule.runMigrations();
   queries = await import("@/lib/queries");
   schema = await import("@/db/schema");
 });
 
-describe("getPaymentsForEvent", () => {
+describe.skipIf(!hasDb)("getPaymentsForEvent", () => {
   it("returns rows for the event ordered by createdAt desc", async () => {
     const [event] = await dbModule.db
       .insert(schema.events)

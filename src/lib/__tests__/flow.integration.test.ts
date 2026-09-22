@@ -59,9 +59,11 @@ function toLedger(
       })),
     })),
   );
+
 }
 
-beforeAll(async () => {
+const hasDb = !!(process.env.POSTGRES_URL || process.env.DATABASE_URL);
+beforeAll(async () => { if (!hasDb) return;
   const dbModule = await import("@/db");
   await dbModule.runMigrations();
   queries = await import("@/lib/queries");
@@ -77,7 +79,7 @@ beforeAll(async () => {
   ownerId = user.id;
 });
 
-describe("full event flow", () => {
+describe.skipIf(!hasDb)("full event flow", () => {
   it("creates an event when the creator adds one other participant", async () => {
     const form = new FormData();
     form.set("name", "Two people");

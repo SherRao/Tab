@@ -32,9 +32,11 @@ async function seedUser(email: string, username: string) {
     .values({ email, username, displayName: username })
     .returning();
   return row;
+
 }
 
-beforeAll(async () => {
+const hasDb = !!(process.env.POSTGRES_URL || process.env.DATABASE_URL);
+beforeAll(async () => { if (!hasDb) return;
   dbModule = await import("@/db");
   await dbModule.runMigrations();
   schema = await import("@/db/schema");
@@ -65,7 +67,7 @@ async function setupEvent() {
   return { event, owner, friend, ownerP, friendP, guestP };
 }
 
-describe("createPaymentAction", () => {
+describe.skipIf(!hasDb)("createPaymentAction", () => {
   it("rejects an unclaimed viewer", async () => {
     const { event, friendP } = await setupEvent();
     currentUser = null;
@@ -138,7 +140,7 @@ describe("createPaymentAction", () => {
   });
 });
 
-describe("updatePaymentAction / deletePaymentAction", () => {
+describe.skipIf(!hasDb)("updatePaymentAction / deletePaymentAction", () => {
   it("payer can edit and delete their own payment", async () => {
     const { event, owner, ownerP, friendP } = await setupEvent();
     currentUser = { id: owner.id, email: owner.email, username: owner.username, displayName: owner.displayName };

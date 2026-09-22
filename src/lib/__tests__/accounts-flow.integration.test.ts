@@ -32,9 +32,11 @@ function addForm(token: string, entry: unknown) {
   form.set("token", token);
   form.set("entry", JSON.stringify(entry));
   return form;
+
 }
 
-beforeAll(async () => {
+const hasDb = !!(process.env.POSTGRES_URL || process.env.DATABASE_URL);
+beforeAll(async () => { if (!hasDb) return;
   dbModule = await import("@/db");
   await dbModule.runMigrations();
   const schema = await import("@/db/schema");
@@ -51,7 +53,7 @@ beforeAll(async () => {
   }
 });
 
-describe("accounts and participants flow", () => {
+describe.skipIf(!hasDb)("accounts and participants flow", () => {
   it("creates an owned event with mixed participant states", async () => {
     const { event, participants } = await queries.createEventRecord(
       "Accounts Trip",

@@ -5,7 +5,8 @@
   "scripts": {
     "predev": "npm run db:migrate",
     "dev": "next dev",
-    "build": "npm run db:migrate && next build",
+    "build": "next build",
+    "vercel-build": "npm run db:migrate && next build",
     "start": "next start",
     "lint": "eslint .",
     "lint:ox": "npx oxlint .",

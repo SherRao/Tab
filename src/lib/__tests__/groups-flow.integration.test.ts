@@ -22,7 +22,9 @@ vi.mock("@/lib/auth", async (importOriginal) => {
   return { ...actual, requireSession: async () => session, getSessionUser: async () => session };
 });
 
-beforeAll(async () => {
+
+const hasDb = !!(process.env.POSTGRES_URL || process.env.DATABASE_URL);
+beforeAll(async () => { if (!hasDb) return;
   const dbModule = await import("@/db");
   await dbModule.runMigrations();
   queries = await import("@/lib/queries");
@@ -67,7 +69,7 @@ async function netsFor(eventId: number, shareToken: string) {
   );
 }
 
-describe("group actions + live resolution", () => {
+describe.skipIf(!hasDb)("group actions + live resolution", () => {
   it("creates a group and resolves an equal split across its members", async () => {
     const { event } = await queries.createEventRecord(
       "Trip",

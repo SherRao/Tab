@@ -35,7 +35,9 @@ vi.mock("@/lib/auth", async (importOriginal) => {
   };
 });
 
-beforeAll(async () => {
+
+const hasDb = !!(process.env.POSTGRES_URL || process.env.DATABASE_URL);
+beforeAll(async () => { if (!hasDb) return;
   dbModule = await import("@/db");
   await dbModule.runMigrations();
   queries = await import("@/lib/queries");
@@ -55,7 +57,7 @@ beforeAll(async () => {
   sessionUserId = ownerId;
 });
 
-describe("deleteEventAction", () => {
+describe.skipIf(!hasDb)("deleteEventAction", () => {
   it("owner deletes event: cascades all dependent data and kills the share link", async () => {
     const { event } = await queries.createEventRecord(
       "Trip to delete",
