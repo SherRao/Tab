@@ -10,6 +10,15 @@ cleanup() {
 }
 trap cleanup EXIT
 
+if ! docker info &>/dev/null; then
+  echo "Docker is not running. Starting Docker Desktop..."
+  open -a Docker
+  until docker info &>/dev/null; do
+    sleep 1
+  done
+  echo "Docker is ready."
+fi
+
 if [ -z "$POSTGRES_URL" ]; then
   export POSTGRES_URL="postgresql://tab:tab@localhost:5432/tab"
 fi
