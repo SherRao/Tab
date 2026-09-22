@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
+import { hasDb } from "./test-db";
 
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 
@@ -7,7 +8,6 @@ let auth: typeof import("@/lib/auth");
 let dbModule: typeof import("@/db");
 
 
-const hasDb = !!(process.env.POSTGRES_URL || process.env.DATABASE_URL);
 beforeAll(async () => { if (!hasDb) return;
   dbModule = await import("@/db");
   await dbModule.runMigrations();

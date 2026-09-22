@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
+import { hasDb } from "./test-db";
 import { eq } from "drizzle-orm";
 
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
@@ -36,7 +37,6 @@ vi.mock("@/lib/auth", async (importOriginal) => {
 });
 
 
-const hasDb = !!(process.env.POSTGRES_URL || process.env.DATABASE_URL);
 beforeAll(async () => { if (!hasDb) return;
   dbModule = await import("@/db");
   await dbModule.runMigrations();

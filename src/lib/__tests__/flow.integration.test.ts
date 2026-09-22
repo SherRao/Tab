@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
+import { hasDb } from "./test-db";
 import { hydrateTotalShares } from "@/lib/expense-hydrate";
 
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
@@ -59,10 +60,8 @@ function toLedger(
       })),
     })),
   );
-
 }
 
-const hasDb = !!(process.env.POSTGRES_URL || process.env.DATABASE_URL);
 beforeAll(async () => { if (!hasDb) return;
   const dbModule = await import("@/db");
   await dbModule.runMigrations();
