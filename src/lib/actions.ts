@@ -302,14 +302,20 @@ export async function saveExpenseAction(token: string, payload: ExpensePayload) 
           expenseId: expense.id,
           name: item.name,
           amountCents: item.amountCents,
+          quantity: item.quantity ?? 0,
         })
         .returning()
         .all();
       lineItemIds.push(row.id);
       const shares = [...new Set(item.participantIds)].filter((id) => validIds.has(id));
       if (shares.length) {
+        const pq = item.participantQuantities ?? {};
         tx.insert(lineItemShares)
-          .values(shares.map((participantId) => ({ lineItemId: row.id, participantId })))
+          .values(shares.map((participantId) => ({
+            lineItemId: row.id,
+            participantId,
+            quantity: pq[participantId] ?? 1,
+          })))
           .run();
       }
     }
@@ -401,14 +407,19 @@ export async function updateExpenseAction(
     for (const item of payload.items) {
       const [row] = tx
         .insert(lineItems)
-        .values({ expenseId, name: item.name, amountCents: item.amountCents })
+        .values({ expenseId, name: item.name, amountCents: item.amountCents, quantity: item.quantity ?? 0 })
         .returning()
         .all();
       lineItemIds.push(row.id);
       const shares = [...new Set(item.participantIds)].filter((id) => validIds.has(id));
       if (shares.length) {
+        const pq = item.participantQuantities ?? {};
         tx.insert(lineItemShares)
-          .values(shares.map((participantId) => ({ lineItemId: row.id, participantId })))
+          .values(shares.map((participantId) => ({
+            lineItemId: row.id,
+            participantId,
+            quantity: pq[participantId] ?? 1,
+          })))
           .run();
       }
     }

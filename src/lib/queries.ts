@@ -147,6 +147,7 @@ export interface ExpenseWithItems {
   items: {
     item: typeof lineItems.$inferSelect;
     participantIds: number[];
+    participantQuantities: Record<number, number>;
   }[];
   shares: {
     id: number;
@@ -197,12 +198,16 @@ export async function getExpenses(eventId: number): Promise<ExpenseWithItems[]> 
     expense,
     items: itemRows
       .filter((i) => i.expenseId === expense.id)
-      .map((item) => ({
-        item,
-        participantIds: shareRows
-          .filter((s) => s.lineItemId === item.id)
-          .map((s) => s.participantId),
-      })),
+      .map((item) => {
+        const itemShares = shareRows.filter((s) => s.lineItemId === item.id);
+        const pq: Record<number, number> = {};
+        for (const s of itemShares) pq[s.participantId] = s.quantity;
+        return {
+          item,
+          participantIds: itemShares.map((s) => s.participantId),
+          participantQuantities: pq,
+        };
+      }),
     shares: expenseShareRows
       .filter((s) => s.expenseId === expense.id)
       .map((s) => ({

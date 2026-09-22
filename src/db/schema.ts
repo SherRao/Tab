@@ -182,6 +182,7 @@ export const lineItems = sqliteTable(
       .references(() => expenses.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     amountCents: integer("amount_cents").notNull(),
+    quantity: integer("quantity").notNull().default(0),
   },
   (t) => [index("line_items_expense_idx").on(t.expenseId)],
 );
@@ -195,6 +196,7 @@ export const lineItemShares = sqliteTable(
     participantId: integer("participant_id")
       .notNull()
       .references(() => participants.id, { onDelete: "cascade" }),
+    quantity: integer("quantity").notNull().default(1),
   },
   (t) => [primaryKey({ columns: [t.lineItemId, t.participantId] })],
 );
