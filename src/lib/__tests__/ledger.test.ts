@@ -7,6 +7,7 @@ import {
   simplifyDebts,
   type LedgerExpense,
   type LedgerParticipant,
+  type LedgerPayment,
 } from "../ledger";
 
 const P = (id: number, name: string): LedgerParticipant => ({ id, name });
@@ -297,6 +298,73 @@ describe("computeNetBalances", () => {
     );
     expect(nets.get(1)).toBe(2056);
     expect(nets.get(2)).toBe(-2056);
+  });
+});
+
+describe("payments in the ledger", () => {
+  const alice = P(1, "Alice");
+  const bob = P(2, "Bob");
+
+  const evenSplit60: LedgerExpense[] = [
+    {
+      payerId: 1,
+      taxCents: 0,
+      tipCents: 0,
+      totalCents: 6000,
+      splitMode: "even",
+      lineItems: [],
+      shares: [
+        { participantId: 1, weightType: "equal", weightValue: 10000 },
+        { participantId: 2, weightType: "equal", weightValue: 10000 },
+      ],
+    },
+  ];
+
+  it("a $30 payment settles the $30 debt so both nets are 0", () => {
+    const payments: LedgerPayment[] = [
+      { fromParticipantId: 2, toParticipantId: 1, amountCents: 3000 },
+    ];
+    const nets = computeNetBalances([alice, bob], evenSplit60, undefined, payments);
+    expect(nets.get(1)).toBe(0);
+    expect(nets.get(2)).toBe(0);
+  });
+
+  it("partial payment reduces the debt", () => {
+    const payments: LedgerPayment[] = [
+      { fromParticipantId: 2, toParticipantId: 1, amountCents: 2000 },
+    ];
+    const nets = computeNetBalances([alice, bob], evenSplit60, undefined, payments);
+    expect(nets.get(1)).toBe(1000);
+    expect(nets.get(2)).toBe(-1000);
+  });
+
+  it("overpayment flips the direction of the debt", () => {
+    const payments: LedgerPayment[] = [
+      { fromParticipantId: 2, toParticipantId: 1, amountCents: 5000 },
+    ];
+    const nets = computeNetBalances([alice, bob], evenSplit60, undefined, payments);
+    expect(nets.get(1)).toBe(-2000);
+    expect(nets.get(2)).toBe(2000);
+  });
+
+  it("removing a payment reverses its effect on net balances", () => {
+    const paymentsBefore: LedgerPayment[] = [
+      { fromParticipantId: 2, toParticipantId: 1, amountCents: 3000 },
+    ];
+    const netsBefore = computeNetBalances([alice, bob], evenSplit60, undefined, paymentsBefore);
+    expect(netsBefore.get(1)).toBe(0);
+
+    const netsAfterDelete = computeNetBalances([alice, bob], evenSplit60, undefined, []);
+    expect(netsAfterDelete.get(1)).toBe(3000);
+    expect(netsAfterDelete.get(2)).toBe(-3000);
+  });
+
+  it("balances still sum to zero when payments are present", () => {
+    const payments: LedgerPayment[] = [
+      { fromParticipantId: 2, toParticipantId: 1, amountCents: 1500 },
+    ];
+    const nets = computeNetBalances([alice, bob], evenSplit60, undefined, payments);
+    expect([...nets.values()].reduce((a, b) => a + b, 0)).toBe(0);
   });
 });
 
@@ -654,6 +722,39 @@ describe("computeParticipantBreakdown parity", () => {
     expect(
       itemSum + bAlice.taxShareCents + bAlice.tipShareCents + bAlice.otherExtrasShareCents,
     ).toBe(bAlice.totalConsumedCents);
+  });
+
+  it("payments section lists sent + received for the participant and reconciles with net", () => {
+    const expenses: LedgerExpense[] = [
+      {
+        payerId: 1,
+        taxCents: 0,
+        tipCents: 0,
+        totalCents: 6000,
+        splitMode: "even",
+        lineItems: [],
+        shares: [
+          { participantId: 1, weightType: "equal", weightValue: 10000 },
+          { participantId: 2, weightType: "equal", weightValue: 10000 },
+        ],
+      },
+    ];
+    const payments: LedgerPayment[] = [
+      { fromParticipantId: 2, toParticipantId: 1, amountCents: 1000, note: "cash" },
+      { fromParticipantId: 2, toParticipantId: 1, amountCents: 500, note: null },
+    ];
+    const bAlice = computeParticipantBreakdown([alice, bob, carol], expenses, 1, undefined, undefined, payments);
+    const bBob = computeParticipantBreakdown([alice, bob, carol], expenses, 2, undefined, undefined, payments);
+    expect(bAlice.paymentsReceived.map((p) => p.amountCents)).toEqual([1000, 500]);
+    expect(bAlice.paymentsSent).toEqual([]);
+    expect(bAlice.totalPaymentsReceivedCents).toBe(1500);
+    expect(bBob.paymentsSent.map((p) => p.amountCents)).toEqual([1000, 500]);
+    expect(bBob.totalPaymentsSentCents).toBe(1500);
+    // Reconcile: paid − consumed + sent − received
+    expect(bAlice.netCents).toBe(
+      bAlice.totalPaidCents - bAlice.totalConsumedCents +
+        bAlice.totalPaymentsSentCents - bAlice.totalPaymentsReceivedCents,
+    );
   });
 
   it("even-mode breakdown no longer double-counts tax/tip (C5)", () => {

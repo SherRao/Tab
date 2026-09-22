@@ -9,6 +9,7 @@ import {
   participantClaims,
   participantGroup,
   participants,
+  payments,
   users,
 } from "@/db/schema";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
@@ -220,6 +221,16 @@ export async function getExpenses(eventId: number): Promise<ExpenseWithItems[]> 
         createdAt: s.createdAt,
       })),
   }));
+}
+
+export type PaymentRow = typeof payments.$inferSelect;
+
+export async function getPaymentsForEvent(eventId: number): Promise<PaymentRow[]> {
+  return db
+    .select()
+    .from(payments)
+    .where(eq(payments.eventId, eventId))
+    .orderBy(desc(payments.createdAt), desc(payments.id));
 }
 
 export async function createEventRecord(

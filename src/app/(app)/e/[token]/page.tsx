@@ -2,6 +2,7 @@ import {
   getEventByToken,
   getExpenses,
   getGroupsForEvent,
+  getPaymentsForEvent,
   getPendingClaims,
   claimedParticipantIdsForUser,
 } from "@/lib/queries";
@@ -12,6 +13,7 @@ import {
   computeParticipantBreakdown,
   type LedgerParticipant,
   type LedgerExpense,
+  type LedgerPayment,
 } from "@/lib/ledger";
 import { addParticipantAction } from "@/lib/actions";
 import { getSessionUser } from "@/lib/auth";
@@ -25,10 +27,11 @@ import {
 } from "@/components/event/balance-list";
 import type { ParticipantBreakdownView } from "@/components/event/balance-breakdown";
 import { ClaimRequests } from "@/components/event/claim-requests";
-import { SettleUpList } from "@/components/event/settle-up-list";
+import { PaymentsPanel } from "@/components/event/payments-panel";
 import { ReceiptList, type ReceiptCardData } from "@/components/event/receipt-list";
 import { GroupManager } from "@/components/event/group-manager";
 import { UnassignedWarnings } from "@/components/event/unassigned-warnings";
+import { ViewerSummary } from "@/components/event/viewer-summary";
 import { ErrorNote } from "@/components/ui/error-note";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { resolveEventError } from "@/lib/event-errors";
@@ -60,11 +63,12 @@ export default async function EventPage({
   const isOwner = viewer != null && detail.event.ownerId === viewer.id;
 
   const { event, participants: people } = detail;
-  const [expenseRows, pendingClaims, viewerClaimedIds, eventGroups] = await Promise.all([
+  const [expenseRows, pendingClaims, viewerClaimedIds, eventGroups, paymentRows] = await Promise.all([
     getExpenses(event.id),
     isOwner ? getPendingClaims(event.id) : Promise.resolve([]),
     viewer ? claimedParticipantIdsForUser(event.id, viewer.id) : Promise.resolve(new Set<number>()),
     getGroupsForEvent(event.id),
+    getPaymentsForEvent(event.id),
   ]);
   const groupMembersById = new Map(eventGroups.map((g) => [g.id, g.memberIds]));
   const groupMemberLookup = (groupId: number) => groupMembersById.get(groupId) ?? [];
@@ -92,8 +96,13 @@ export default async function EventPage({
     })),
   }));
 
-  const nets = computeNetBalances(people, ledgerExpenses, groupMemberLookup);
+  // PaymentRow is structurally a LedgerPayment (extra eventId is ignored).
+  const ledgerPayments: LedgerPayment[] = paymentRows;
+  const nets = computeNetBalances(people, ledgerExpenses, groupMemberLookup, ledgerPayments);
   const transfers = simplifyDebts(nets);
+  const viewerParticipantId = viewer
+    ? (people.find((p) => p.userId === viewer.id)?.id ?? null)
+    : null;
   const nameOf = new Map(people.map((p) => [p.id, p.userDisplayName ?? p.name]));
   const grandTotal = expenseRows.reduce((sum, r) => sum + r.expense.totalCents, 0);
   const warnings = unassignedItemWarnings(expenseRows);
@@ -155,6 +164,7 @@ export default async function EventPage({
       p.id,
       groupMemberLookup,
       consumption,
+      ledgerPayments,
     );
     breakdowns.set(p.id, {
       items: b.items.map((i) => ({ ...i })),
@@ -168,7 +178,7 @@ export default async function EventPage({
   }
 
   return (
-    <main className="mx-auto w-full max-w-2xl flex-1 px-6 pt-8 pb-20">
+    <main className="mx-auto w-full max-w-6xl flex-1 px-6 pt-8 pb-20">
       <EventHeader
         token={token}
         eventName={event.name}
@@ -179,47 +189,68 @@ export default async function EventPage({
 
       {errorMessage && <ErrorNote variant="page">{errorMessage}</ErrorNote>}
 
-      <BalanceList
-        token={token}
-        people={balancePeople}
-        nets={nets}
-        pendingClaims={claimRows}
-        viewerClaimedIds={viewerClaimedIds}
-        viewer={viewer ? { id: viewer.id, displayName: viewer.displayName } : null}
-        addAction={addParticipantAction}
-        breakdowns={breakdowns}
-      />
+      <div className="mt-8 lg:grid lg:grid-cols-[1fr_minmax(340px,420px)] lg:gap-10">
+        <div>
+          <UnassignedWarnings warnings={warnings} />
 
-      <ClaimRequests token={token} claims={claimRows} guestNameOf={guestNameOf} />
+          <ReceiptList token={token} receipts={receipts} nameOf={nameOf} />
+        </div>
 
-      <UnassignedWarnings warnings={warnings} />
+        <aside>
+          <ViewerSummary
+            viewer={viewer ? { id: viewer.id } : null}
+            viewerParticipantId={viewerParticipantId}
+            nets={nets}
+            transfers={transfers}
+          />
 
-      <SettleUpList transfers={transfers} nameOf={nameOf} />
+          <BalanceList
+            token={token}
+            people={balancePeople}
+            nets={nets}
+            pendingClaims={claimRows}
+            viewerClaimedIds={viewerClaimedIds}
+            viewer={viewer ? { id: viewer.id, displayName: viewer.displayName } : null}
+            addAction={addParticipantAction}
+            breakdowns={breakdowns}
+          />
 
-      <ReceiptList token={token} receipts={receipts} nameOf={nameOf} />
+          <ClaimRequests token={token} claims={claimRows} guestNameOf={guestNameOf} />
 
-      <section className="mt-12">
-        <SectionHeading>Groups</SectionHeading>
-        <p className="mt-2 mb-4 font-mono text-[11px] leading-relaxed text-stone-400">
-          Reusable sets of people you can split a receipt by. Editing members re-scopes past
-          receipts that use the group.
-        </p>
-        <GroupManager
-          token={token}
-          eventName={event.name}
-          participants={people.map((p) => ({ id: p.id, name: p.userDisplayName ?? p.name }))}
-          groups={eventGroups}
-        />
-      </section>
+          <PaymentsPanel
+            token={token}
+            transfers={transfers}
+            history={paymentRows}
+            participants={people.map((p) => ({ id: p.id, displayName: p.userDisplayName ?? p.name }))}
+            nameOf={nameOf}
+            viewerParticipantId={viewerParticipantId}
+            claimHref={`/signin?next=${encodeURIComponent(`/e/${token}`)}`}
+          />
 
-      {isOwner && (
-        <section className="mt-12">
-          <SectionHeading>Actions</SectionHeading>
-          <div className="mt-4">
-            <DeleteTabButton token={token} eventName={event.name} />
-          </div>
-        </section>
-      )}
+          <section className="mt-12">
+            <SectionHeading>Groups</SectionHeading>
+            <p className="mt-2 mb-4 font-mono text-[11px] leading-relaxed text-stone-400">
+              Reusable sets of people you can split a receipt by. Editing members re-scopes past
+              receipts that use the group.
+            </p>
+            <GroupManager
+              token={token}
+              eventName={event.name}
+              participants={people.map((p) => ({ id: p.id, name: p.userDisplayName ?? p.name }))}
+              groups={eventGroups}
+            />
+          </section>
+
+          {isOwner && (
+            <section className="mt-12">
+              <SectionHeading>Actions</SectionHeading>
+              <div className="mt-4">
+                <DeleteTabButton token={token} eventName={event.name} />
+              </div>
+            </section>
+          )}
+        </aside>
+      </div>
     </main>
   );
 }

@@ -239,18 +239,108 @@ body {
   animation-delay: var(--sway-delay, 0s);
 }
 
+/* ---- scroll-scrubbed motion ------------------------------------------
+   `--p` is a 0..1 scroll progress written per frame by useScrollProgress.
+   Everything below reads it, so no JS re-renders during a scroll.          */
+
 .reveal {
-  opacity: 0;
-  transform: translateY(24px);
-  transition:
-    opacity 650ms ease,
-    transform 650ms cubic-bezier(0.22, 1, 0.36, 1);
-  transition-delay: var(--delay, 0ms);
+  --p: 0;
+  opacity: var(--p);
+  transform: translateY(calc((1 - var(--p)) * 24px));
+  will-change: opacity, transform;
 }
 
-.reveal.is-visible {
+.reveal-stamp .stamp {
+  opacity: var(--p);
+  transform: rotate(calc(-3deg - (1 - var(--p)) * 12deg))
+    scale(calc(1 + (1 - var(--p)) * 0.6));
+}
+
+.parallax {
+  transform: translate3d(0, calc((var(--p, 0.5) - 0.5) * var(--parallax, 0px)), 0);
+  will-change: transform;
+}
+
+/* one beat of the pinned ledger demo stepping into view */
+.step {
+  opacity: 0;
+  transform: translateY(10px);
+  transition:
+    opacity 400ms ease,
+    transform 400ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.step.is-in {
   opacity: 1;
   transform: translateY(0);
+}
+
+/* the demo's balances → transfers cross-fade, stacked in one grid cell */
+.swap,
+.swap-in {
+  grid-area: 1 / 1;
+  transition:
+    opacity 350ms ease,
+    transform 350ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.swap.is-out {
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+}
+.swap-in {
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+}
+.swap-in.is-in {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* a net-balance bar in the demo, growing to its share of the largest balance */
+.bar-fill {
+  width: 0;
+  transition: width 700ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.bar-fill[data-filled="true"] {
+  width: var(--fill, 0);
+}
+
+/* the demo's step list, dimmed until its chapter is on screen */
+.chapter {
+  opacity: 0.35;
+  transition: opacity 300ms ease;
+}
+.chapter.is-active {
+  opacity: 1;
+}
+
+/* Below lg the ledger demo is not pinned, so there is no scrub to drive it —
+   show every beat at once and let the two result panels stack normally. */
+@media (max-width: 1023px) {
+  .step,
+  .chapter {
+    opacity: 1;
+    transform: none;
+  }
+  /* `.swap.is-out` is two classes, so it has to be named here to be beaten. */
+  .swap,
+  .swap.is-out,
+  .swap-in,
+  .swap-in.is-in {
+    grid-area: auto;
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+  .swap-in {
+    margin-top: 1.5rem;
+  }
+  .bar-fill,
+  .bar-fill[data-filled="false"] {
+    width: var(--fill, 0);
+  }
 }
 
 @keyframes stamp-in {
@@ -268,34 +358,36 @@ body {
   }
 }
 
-.stamp-in:not(.is-visible) .stamp {
-  opacity: 0;
-}
-
-.stamp-in.is-visible .stamp {
-  animation: stamp-in 500ms cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
-  animation-delay: calc(var(--delay, 0ms) + 200ms);
-}
-
 .stamp-pop {
   animation: stamp-in 500ms cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* Scroll-scrubbed elements ignore `--p` entirely and just sit in their
+     finished state; the pinned demo still steps, but without the drift. */
   .form-step,
   .rise-in,
-  .reveal {
+  .reveal,
+  .parallax,
+  .step,
+  .swap,
+  .swap-in {
     animation: none;
     opacity: 1;
     transform: none;
     transition: none;
   }
+  .reveal-stamp .stamp {
+    opacity: 1;
+    transform: rotate(-3deg);
+  }
+  /* Only ever show one side of the cross-fade, since neither is animating. */
+  .swap.is-out,
+  .swap-in:not(.is-in) {
+    display: none;
+  }
   .sway,
-  .stamp-in.is-visible .stamp,
   .stamp-pop {
     animation: none;
-  }
-  .stamp-in:not(.is-visible) .stamp {
-    opacity: 1;
   }
 }
