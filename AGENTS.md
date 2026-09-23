@@ -75,6 +75,14 @@ receipts, and the ledger nets everything out to the fewest transfers.
 flow integration test. Run it before committing anything that touches money
 logic.
 
+## Pull requests
+
+Always fill in the PR body from `.github/pull_request_template.md` — every
+required section (Purpose, Expected Results, Additional Considerations /
+Accessibility, Testing Notes, Console Noise, Security Impact, Privacy Impact).
+Tick the not-applicable checkboxes rather than deleting the section. Pass the
+completed template as the `--body` when running `gh pr create`.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know
