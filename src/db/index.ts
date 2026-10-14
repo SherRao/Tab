@@ -1,62 +1,84 @@
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import { migrate } from "drizzle-orm/better-sqlite3/migrator";
-import Database from "better-sqlite3";
+import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
+import { migrate } from "drizzle-orm/postgres-js/migrator";
+import postgres from "postgres";
 import crypto from "node:crypto";
-import fs from "node:fs";
 import path from "node:path";
+import fs from "node:fs";
 import * as schema from "./schema";
 
-const url = process.env.DATABASE_URL ?? "file:./data/app.db";
-const dbPath = url.replace(/^file:/, "");
-fs.mkdirSync(path.dirname(path.resolve(dbPath)), { recursive: true });
+function getConnectionString() {
+  const url = process.env.POSTGRES_URL ?? process.env.DATABASE_URL;
+  if (!url) {
+    throw new Error("POSTGRES_URL (or DATABASE_URL) environment variable is required");
+  }
+  return url;
+}
 
-const sqlite = new Database(dbPath);
-sqlite.pragma("journal_mode = WAL");
-sqlite.pragma("foreign_keys = ON");
+let _db: PostgresJsDatabase<typeof schema> | undefined;
 
-export const db = drizzle(sqlite, { schema });
+export const db = new Proxy({} as PostgresJsDatabase<typeof schema>, {
+  get(_target, prop, receiver) {
+    if (!_db) {
+      const client = postgres(getConnectionString());
+      _db = drizzle(client, { schema });
+    }
+    return Reflect.get(_db, prop, receiver);
+  },
+});
 
-export function runMigrations() {
+export async function runMigrations() {
+  const client = postgres(getConnectionString(), { max: 1 });
+  const migrationDb = drizzle(client, { schema });
   const migrationsFolder = path.resolve("drizzle");
-  if (!fs.existsSync(migrationsFolder)) return;
+  try {
+    if (!fs.existsSync(migrationsFolder)) return;
 
-  // The migration history has been squashed before, which leaves some existing
-  // DBs already carrying a migration's schema changes while missing its row in
-  // `__drizzle_migrations`. Drizzle then re-runs that migration and fails with
-  // "duplicate column name" / "already exists". When that happens, record the
-  // pending migration as applied (its effects are already present) and retry.
-  // Each pass advances the ledger, so the loop always terminates.
-  for (;;) {
-    try {
-      migrate(db, { migrationsFolder });
-      return;
-    } catch (err) {
-      if (!isAlreadyAppliedError(err) || !recordPendingMigration(migrationsFolder)) {
-        throw err;
+    // The migration history has been squashed before, which leaves some existing
+    // DBs already carrying a migration's schema changes while missing its row in
+    // `__drizzle_migrations`. Drizzle then re-runs that migration and fails with
+    // "already exists". When that happens, record the pending migration as
+    // applied (its effects are already present) and retry. Each pass advances
+    // the ledger, so the loop always terminates.
+    for (;;) {
+      try {
+        await migrate(migrationDb, { migrationsFolder });
+        return;
+      } catch (err) {
+        if (!isAlreadyAppliedError(err) || !(await recordPendingMigration(client, migrationsFolder))) {
+          throw err;
+        }
       }
     }
+  } finally {
+    await client.end();
   }
 }
 
+// Postgres codes for duplicate column / table / object (index, constraint, type).
+const ALREADY_EXISTS_CODES = new Set(["42701", "42P07", "42710"]);
+
 function isAlreadyAppliedError(err: unknown): boolean {
-  const message = err instanceof Error ? err.message : String(err);
-  const cause = err instanceof Error && err.cause instanceof Error ? err.cause.message : "";
-  return /duplicate column name|already exists/i.test(`${message} ${cause}`);
+  const codeOf = (e: unknown) =>
+    e && typeof e === "object" && "code" in e ? String((e as { code: unknown }).code) : "";
+  const cause = err instanceof Error ? err.cause : undefined;
+  return ALREADY_EXISTS_CODES.has(codeOf(err)) || ALREADY_EXISTS_CODES.has(codeOf(cause));
 }
 
 // Insert a `__drizzle_migrations` row for the first migration drizzle still
 // considers pending, mirroring how drizzle selects what to run (everything with
 // `when` greater than the newest recorded `created_at`). Returns false when
 // nothing is pending, so the caller can rethrow instead of looping forever.
-function recordPendingMigration(migrationsFolder: string): boolean {
+async function recordPendingMigration(
+  client: postgres.Sql,
+  migrationsFolder: string,
+): Promise<boolean> {
   const journal = JSON.parse(
     fs.readFileSync(path.join(migrationsFolder, "meta", "_journal.json"), "utf8"),
   ) as { entries: { tag: string; when: number }[] };
 
-  const client = db.$client;
-  const last = client
-    .prepare("SELECT created_at FROM __drizzle_migrations ORDER BY created_at DESC LIMIT 1")
-    .get() as { created_at: number } | undefined;
+  const [last] = await client<{ created_at: string }[]>`
+    SELECT created_at FROM drizzle.__drizzle_migrations ORDER BY created_at DESC LIMIT 1
+  `;
   const lastMillis = last ? Number(last.created_at) : -1;
 
   const pending = journal.entries.find((entry) => entry.when > lastMillis);
@@ -64,8 +86,8 @@ function recordPendingMigration(migrationsFolder: string): boolean {
 
   const sql = fs.readFileSync(path.join(migrationsFolder, `${pending.tag}.sql`), "utf8");
   const hash = crypto.createHash("sha256").update(sql).digest("hex");
-  client
-    .prepare("INSERT INTO __drizzle_migrations (hash, created_at) VALUES (?, ?)")
-    .run(hash, pending.when);
+  await client`
+    INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES (${hash}, ${pending.when})
+  `;
   return true;
 }

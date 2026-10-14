@@ -2,20 +2,22 @@ import { relations, sql } from "drizzle-orm";
 import {
   index,
   integer,
+  pgTable,
   primaryKey,
-  sqliteTable,
+  serial,
   text,
+  timestamp,
   uniqueIndex,
-} from "drizzle-orm/sqlite-core";
+} from "drizzle-orm/pg-core";
 
-export const users = sqliteTable(
+export const users = pgTable(
   "users",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     email: text("email").notNull(),
     username: text("username").notNull(),
     displayName: text("display_name").notNull(),
-    createdAt: integer("created_at", { mode: "timestamp" })
+    createdAt: timestamp("created_at")
       .notNull()
       .$defaultFn(() => new Date()),
   },
@@ -25,46 +27,46 @@ export const users = sqliteTable(
   ],
 );
 
-export const sessions = sqliteTable(
+export const sessions = pgTable(
   "sessions",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     userId: integer("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     tokenHash: text("token_hash").notNull(),
-    expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
-    createdAt: integer("created_at", { mode: "timestamp" })
+    expiresAt: timestamp("expires_at").notNull(),
+    createdAt: timestamp("created_at")
       .notNull()
       .$defaultFn(() => new Date()),
   },
   (t) => [uniqueIndex("sessions_token_hash_unique").on(t.tokenHash)],
 );
 
-export const events = sqliteTable("events", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const events = pgTable("events", {
+  id: serial("id").primaryKey(),
   name: text("name").notNull(),
   shareToken: text("share_token").notNull().unique(),
   ownerId: integer("owner_id").references(() => users.id, {
     onDelete: "set null",
   }),
-  createdAt: integer("created_at", { mode: "timestamp" })
+  createdAt: timestamp("created_at")
     .notNull()
     .$defaultFn(() => new Date()),
 });
 
-export const groups = sqliteTable("groups", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const groups = pgTable("groups", {
+  id: serial("id").primaryKey(),
   eventId: integer("event_id")
     .notNull()
     .references(() => events.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
 });
 
-export const participants = sqliteTable(
+export const participants = pgTable(
   "participants",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     eventId: integer("event_id")
       .notNull()
       .references(() => events.id, { onDelete: "cascade" }),
@@ -73,8 +75,8 @@ export const participants = sqliteTable(
       onDelete: "set null",
     }),
     email: text("email"),
-    invitedAt: integer("invited_at", { mode: "timestamp" }),
-    addedAt: integer("added_at", { mode: "timestamp" })
+    invitedAt: timestamp("invited_at"),
+    addedAt: timestamp("added_at")
       .notNull()
       .$defaultFn(() => new Date()),
   },
@@ -89,7 +91,7 @@ export const participants = sqliteTable(
 export const AUTH_TOKEN_PURPOSES = ["signin", "invite"] as const;
 export type AuthTokenPurpose = (typeof AUTH_TOKEN_PURPOSES)[number];
 
-export const participantGroup = sqliteTable(
+export const participantGroup = pgTable(
   "participantGroup",
   {
     participantId: integer("participant_id")
@@ -102,19 +104,19 @@ export const participantGroup = sqliteTable(
   (t) => [primaryKey({ columns: [t.participantId, t.groupId] })],
 );
 
-export const authTokens = sqliteTable(
+export const authTokens = pgTable(
   "auth_tokens",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     email: text("email").notNull(),
     tokenHash: text("token_hash").notNull(),
     purpose: text("purpose", { enum: AUTH_TOKEN_PURPOSES }).notNull(),
     participantId: integer("participant_id").references(() => participants.id, {
       onDelete: "cascade",
     }),
-    expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
-    usedAt: integer("used_at", { mode: "timestamp" }),
-    createdAt: integer("created_at", { mode: "timestamp" })
+    expiresAt: timestamp("expires_at").notNull(),
+    usedAt: timestamp("used_at"),
+    createdAt: timestamp("created_at")
       .notNull()
       .$defaultFn(() => new Date()),
   },
@@ -124,10 +126,10 @@ export const authTokens = sqliteTable(
 export const CLAIM_STATUSES = ["pending", "approved", "denied"] as const;
 export type ClaimStatus = (typeof CLAIM_STATUSES)[number];
 
-export const participantClaims = sqliteTable(
+export const participantClaims = pgTable(
   "participant_claims",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     participantId: integer("participant_id")
       .notNull()
       .references(() => participants.id, { onDelete: "cascade" }),
@@ -135,10 +137,10 @@ export const participantClaims = sqliteTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     status: text("status", { enum: CLAIM_STATUSES }).notNull().default("pending"),
-    createdAt: integer("created_at", { mode: "timestamp" })
+    createdAt: timestamp("created_at")
       .notNull()
       .$defaultFn(() => new Date()),
-    decidedAt: integer("decided_at", { mode: "timestamp" }),
+    decidedAt: timestamp("decided_at"),
   },
   (t) => [
     index("participant_claims_participant_idx").on(t.participantId),
@@ -151,10 +153,10 @@ export const participantClaims = sqliteTable(
 export const SPLIT_MODES = ["itemized", "even"] as const;
 export type SplitMode = (typeof SPLIT_MODES)[number];
 
-export const expenses = sqliteTable(
+export const expenses = pgTable(
   "expenses",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     eventId: integer("event_id")
       .notNull()
       .references(() => events.id, { onDelete: "cascade" }),
@@ -166,17 +168,17 @@ export const expenses = sqliteTable(
     tipCents: integer("tip_cents").notNull().default(0),
     totalCents: integer("total_cents").notNull().default(0),
     splitMode: text("split_mode", { enum: SPLIT_MODES }).notNull().default("itemized"),
-    createdAt: integer("created_at", { mode: "timestamp" })
+    createdAt: timestamp("created_at")
       .notNull()
       .$defaultFn(() => new Date()),
   },
   (t) => [index("expenses_event_idx").on(t.eventId)],
 );
 
-export const lineItems = sqliteTable(
+export const lineItems = pgTable(
   "line_items",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     expenseId: integer("expense_id")
       .notNull()
       .references(() => expenses.id, { onDelete: "cascade" }),
@@ -187,7 +189,7 @@ export const lineItems = sqliteTable(
   (t) => [index("line_items_expense_idx").on(t.expenseId)],
 );
 
-export const lineItemShares = sqliteTable(
+export const lineItemShares = pgTable(
   "line_item_shares",
   {
     lineItemId: integer("line_item_id")
@@ -204,10 +206,10 @@ export const lineItemShares = sqliteTable(
 export const WEIGHT_TYPES = ["equal", "percent", "amount"] as const;
 export type WeightType = (typeof WEIGHT_TYPES)[number];
 
-export const expenseShares = sqliteTable(
+export const expenseShares = pgTable(
   "expense_shares",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     expenseId: integer("expense_id")
       .notNull()
       .references(() => expenses.id, { onDelete: "cascade" }),
@@ -222,7 +224,7 @@ export const expenseShares = sqliteTable(
     }),
     weightType: text("weight_type", { enum: WEIGHT_TYPES }).notNull(),
     weightValue: integer("weight_value").notNull(),
-    createdAt: integer("created_at", { mode: "timestamp" })
+    createdAt: timestamp("created_at")
       .notNull()
       .$defaultFn(() => new Date()),
   },
@@ -238,10 +240,10 @@ export const expenseShares = sqliteTable(
   ],
 );
 
-export const payments = sqliteTable(
+export const payments = pgTable(
   "payments",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     eventId: integer("event_id")
       .notNull()
       .references(() => events.id, { onDelete: "cascade" }),
@@ -253,7 +255,7 @@ export const payments = sqliteTable(
       .references(() => participants.id, { onDelete: "restrict" }),
     amountCents: integer("amount_cents").notNull(),
     note: text("note"),
-    createdAt: integer("created_at", { mode: "timestamp" })
+    createdAt: timestamp("created_at")
       .notNull()
       .$defaultFn(() => new Date()),
   },

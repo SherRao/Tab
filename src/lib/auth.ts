@@ -63,7 +63,7 @@ export async function loginTokenRateOk(email: string): Promise<boolean> {
   await purgeStaleAuthTokens();
   const since = new Date(Date.now() - LOGIN_TOKEN_RATE_WINDOW_MS);
   const [row] = await db
-    .select({ n: sql<number>`count(*)` })
+    .select({ n: sql<number>`cast(count(*) as integer)` })
     .from(authTokens)
     .where(and(eq(authTokens.email, normalizeEmail(email)), gt(authTokens.createdAt, since)));
   return (row?.n ?? 0) < LOGIN_TOKEN_RATE_MAX;

@@ -1,25 +1,21 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import os from "node:os";
-import path from "node:path";
+import { hasDb } from "./test-db";
 
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 vi.mock("next/navigation", () => ({ redirect: () => {} }));
-
-process.env.DATABASE_URL = `file:${path.join(os.tmpdir(), `payments-queries-${Date.now()}-${process.pid}.db`)}`;
 
 let queries: typeof import("@/lib/queries");
 let dbModule: typeof import("@/db");
 let schema: typeof import("@/db/schema");
 
-beforeAll(async () => {
-  const { migrate } = await import("drizzle-orm/better-sqlite3/migrator");
+beforeAll(async () => { if (!hasDb) return;
   dbModule = await import("@/db");
-  await migrate(dbModule.db, { migrationsFolder: "./drizzle" });
+  await dbModule.runMigrations();
   queries = await import("@/lib/queries");
   schema = await import("@/db/schema");
 });
 
-describe("getPaymentsForEvent", () => {
+describe.skipIf(!hasDb)("getPaymentsForEvent", () => {
   it("returns rows for the event ordered by createdAt desc", async () => {
     const [event] = await dbModule.db
       .insert(schema.events)

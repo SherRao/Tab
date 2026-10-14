@@ -1,6 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import os from "node:os";
-import path from "node:path";
+import { hasDb } from "./test-db";
 import { eq } from "drizzle-orm";
 
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
@@ -12,7 +11,6 @@ vi.mock("next/navigation", () => ({ redirect: (url: string) => redirectMock(url)
 const sendEmailMock = vi.fn().mockResolvedValue(undefined);
 vi.mock("@/lib/email", () => ({ sendEmail: (...args: unknown[]) => sendEmailMock(...args) }));
 
-process.env.DATABASE_URL = `file:${path.join(os.tmpdir(), `accounts-test-${Date.now()}-${process.pid}.db`)}`;
 
 // Mutable signed-in identity so tests can act as different users.
 let currentUser = { id: 0, email: "", username: "", displayName: "" };
@@ -37,9 +35,9 @@ function addForm(token: string, entry: unknown) {
   return form;
 }
 
-beforeAll(async () => {
+beforeAll(async () => { if (!hasDb) return;
   dbModule = await import("@/db");
-  dbModule.runMigrations();
+  await dbModule.runMigrations();
   const schema = await import("@/db/schema");
   queries = await import("@/lib/queries");
   actions = await import("@/lib/actions");
@@ -54,7 +52,7 @@ beforeAll(async () => {
   }
 });
 
-describe("accounts and participants flow", () => {
+describe.skipIf(!hasDb)("accounts and participants flow", () => {
   it("creates an owned event with mixed participant states", async () => {
     const { event, participants } = await queries.createEventRecord(
       "Accounts Trip",

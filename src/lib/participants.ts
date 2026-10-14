@@ -47,7 +47,7 @@ export async function searchAccounts(query: string): Promise<AccountSuggestion[]
       displayName: users.displayName,
     })
     .from(users)
-    .where(or(sql`${users.username} like ${"%" + q + "%"}`, eq(users.email, q)))
+    .where(or(sql`${users.username} ilike ${"%" + q + "%"}`, eq(users.email, q)))
     .limit(8);
   return rows;
 }

@@ -1,1 +1,1 @@
-ALTER TABLE `expenses` ADD `even_participant_ids` text;
+ALTER TABLE "expenses" ADD COLUMN "even_participant_ids" text;

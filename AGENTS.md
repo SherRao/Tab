@@ -11,7 +11,7 @@ receipts, and the ledger nets everything out to the fewest transfers.
 - `npm test` — vitest (all tests)
 - `npm run lint` — eslint
 - `npm run db:generate` — regenerate drizzle migrations after schema changes
-- `npm run db:migrate` — apply migrations to `data/app.db`
+- `npm run db:migrate` — apply migrations to PostgreSQL (`POSTGRES_URL`)
 
 ## Architecture
 
@@ -23,7 +23,7 @@ receipts, and the ledger nets everything out to the fewest transfers.
 - `src/lib/queries.ts` — read queries; `src/lib/actions.ts` — server actions
   (create event, add participant, save/update/delete expense).
 - `src/db/schema.ts` — drizzle schema (events, participants, expenses,
-  line_items, line_item_shares, payments). SQLite via better-sqlite3, WAL mode.
+  line_items, line_item_shares, payments). PostgreSQL via postgres.js.
 - `src/lib/receipt-parse.ts` + `src/lib/image-preprocess.ts` — on-device
   receipt OCR (tesseract.js, client-side only).
 - `src/components/` — UI lives here, not in route files; pages fetch data and
@@ -74,6 +74,14 @@ receipts, and the ledger nets everything out to the fewest transfers.
 `npm test` covers the ledger math (`src/lib/__tests__/`) including a full
 flow integration test. Run it before committing anything that touches money
 logic.
+
+## Pull requests
+
+Always fill in the PR body from `.github/pull_request_template.md` — every
+required section (Purpose, Expected Results, Additional Considerations /
+Accessibility, Testing Notes, Console Noise, Security Impact, Privacy Impact).
+Tick the not-applicable checkboxes rather than deleting the section. Pass the
+completed template as the `--body` when running `gh pr create`.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

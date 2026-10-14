@@ -1,6 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import os from "node:os";
-import path from "node:path";
+import { hasDb } from "./test-db";
 import { eq } from "drizzle-orm";
 
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
@@ -9,7 +8,6 @@ const redirectMock = vi.fn((url: string) => {
 });
 vi.mock("next/navigation", () => ({ redirect: (url: string) => redirectMock(url) }));
 
-process.env.DATABASE_URL = `file:${path.join(os.tmpdir(), `payments-actions-${Date.now()}-${process.pid}.db`)}`;
 
 let currentUser: { id: number; email: string; username: string; displayName: string } | null = null;
 vi.mock("@/lib/auth", async (importOriginal) => {
@@ -37,9 +35,9 @@ async function seedUser(email: string, username: string) {
   return row;
 }
 
-beforeAll(async () => {
+beforeAll(async () => { if (!hasDb) return;
   dbModule = await import("@/db");
-  dbModule.runMigrations();
+  await dbModule.runMigrations();
   schema = await import("@/db/schema");
   actions = await import("@/lib/actions");
   queries = await import("@/lib/queries");
@@ -68,7 +66,7 @@ async function setupEvent() {
   return { event, owner, friend, ownerP, friendP, guestP };
 }
 
-describe("createPaymentAction", () => {
+describe.skipIf(!hasDb)("createPaymentAction", () => {
   it("rejects an unclaimed viewer", async () => {
     const { event, friendP } = await setupEvent();
     currentUser = null;
@@ -141,7 +139,7 @@ describe("createPaymentAction", () => {
   });
 });
 
-describe("updatePaymentAction / deletePaymentAction", () => {
+describe.skipIf(!hasDb)("updatePaymentAction / deletePaymentAction", () => {
   it("payer can edit and delete their own payment", async () => {
     const { event, owner, ownerP, friendP } = await setupEvent();
     currentUser = { id: owner.id, email: owner.email, username: owner.username, displayName: owner.displayName };
