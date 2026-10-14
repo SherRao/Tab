@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import { SmoothScroll } from "@/components/ui/smooth-scroll";
 import "lenis/dist/lenis.css";
 import "./globals.css";
@@ -29,6 +30,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         <SmoothScroll />
         {children}
+        <Analytics />
       </body>
     </html>
   );
