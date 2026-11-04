@@ -1,7 +1,7 @@
 name: Release
 
 # On every push to main, release-please keeps a release PR up to date (version bump + changelog).
-# Merging that PR tags a release.
+# Merging that PR tags a release, and this workflow then merges the tag into "live", which is production.
 
 on:
   push:
@@ -20,7 +20,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Run release-please
+        id: release
         uses: googleapis/release-please-action@v5
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+      - name: Merge release into live
+        if: steps.release.outputs.release_created == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ steps.release.outputs.sha }}
+          TAG: ${{ steps.release.outputs.tag_name }}
+        run: |
+          gh api "repos/$REPO/merges" \
+            -f base=live \
+            -f head="$SHA" \
+            -f commit_message="release: $TAG to live"
