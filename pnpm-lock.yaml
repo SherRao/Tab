@@ -36,8 +36,8 @@ importers:
         specifier: 19.3.0
         version: 19.3.0(react@19.3.1)
       resend:
-        specifier: ^6.28.1
-        version: 6.28.1
+        specifier: ^6.37.0
+        version: 6.37.0
       tesseract.js:
         specifier: ^7.0.0
         version: 7.0.0
@@ -3175,8 +3175,8 @@ packages:
     resolution: {integrity: sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw==}
     engines: {node: '>=0.10.0'}
 
-  resend@6.28.1:
-    resolution: {integrity: sha512-5VWOcDiWKBt0NWYKXwzY9WJ+LbpQLYw9M6j1DDJYPk7TloHfWOJyaY4EFKoR/KPL0N4m5yO3o96iDoYOX7v+GA==}
+  resend@6.37.0:
+    resolution: {integrity: sha512-iYNhmhfXVomZr+TMIxf6oqj7kTeGqPDE+wGcYw1H4g8WMBR59NsbShnUz43dSYpStW16iEA6dZs+egqQmdm0zA==}
     engines: {node: '>=20'}
     peerDependencies:
       '@react-email/render': '*'
@@ -6329,7 +6329,7 @@ snapshots:
 
   require-from-string@2.0.2: {}
 
-  resend@6.28.1:
+  resend@6.37.0:
     dependencies:
       postal-mime: 2.7.6
       standardwebhooks: 1.1.1
