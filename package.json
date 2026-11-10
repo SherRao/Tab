@@ -39,7 +39,7 @@
     "eslint": "^9.39.5",
     "eslint-config-next": "16.4.3",
     "oxfmt": "^0.75.0",
-    "oxlint": "^1.87.0",
+    "oxlint": "^1.92.0",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
