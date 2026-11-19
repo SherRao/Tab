@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.2.1](https://github.com/SherRao/Tab/compare/v0.2.0...v0.2.1) (2026-11-19)
+
+
+### Miscellaneous Chores
+
+* **deps:** bump @tailwindcss/postcss from 4.3.3 to 4.3.5 ([#131](https://github.com/SherRao/Tab/issues/131)) ([5ae5cdf](https://github.com/SherRao/Tab/commit/5ae5cdfaf9e0e4660b4d012b95afff5c6aab3bb5))
+* **deps:** bump dotenv from 18.0.8 to 18.0.9 ([#126](https://github.com/SherRao/Tab/issues/126)) ([eb0a663](https://github.com/SherRao/Tab/commit/eb0a663534661a9e7c29f4b499256572b4a6fae3))
+* **deps:** bump oxfmt from 0.73.0 to 0.75.0 ([#125](https://github.com/SherRao/Tab/issues/125)) ([2a2e06c](https://github.com/SherRao/Tab/commit/2a2e06c1a2d2739b0d2d6b1892b48fa41f23edf8))
+* **deps:** bump oxfmt from 0.75.0 to 0.77.0 ([#130](https://github.com/SherRao/Tab/issues/130)) ([8d815f8](https://github.com/SherRao/Tab/commit/8d815f883252d1e3585b45c292cf9ec87d6e15f1))
+* **deps:** bump oxlint from 1.87.0 to 1.92.0 ([#127](https://github.com/SherRao/Tab/issues/127)) ([1442f39](https://github.com/SherRao/Tab/commit/1442f39c4187c0c40be0c44b415b77580a959338))
+* **deps:** bump postgres from 3.4.9 to 4.0.0 ([#124](https://github.com/SherRao/Tab/issues/124)) ([94d51bb](https://github.com/SherRao/Tab/commit/94d51bbcbc30a29d7f2e8a8c45b65b58873edf13))
+* **deps:** bump postgres from 4.0.0 to 4.1.0 ([#129](https://github.com/SherRao/Tab/issues/129)) ([cf861a1](https://github.com/SherRao/Tab/commit/cf861a10a6931845a1da29c6c8b91e6abb668f8d))
+* **deps:** bump react-dom from 19.3.0 to 19.3.1 ([#123](https://github.com/SherRao/Tab/issues/123)) ([33f21c0](https://github.com/SherRao/Tab/commit/33f21c01c5285a791cc04edfa66776949a988c9f))
+
 ## [0.2.0](https://github.com/SherRao/Tab/compare/v0.1.0...v0.2.0) (2026-11-04)
 
 
