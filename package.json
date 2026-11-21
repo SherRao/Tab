@@ -37,7 +37,7 @@
     "@types/react-dom": "^19.3.0",
     "drizzle-kit": "^0.31.11",
     "eslint": "^9.39.5",
-    "eslint-config-next": "16.4.3",
+    "eslint-config-next": "16.4.6",
     "oxfmt": "^0.77.0",
     "oxlint": "^1.92.0",
     "tailwindcss": "^4.3.5",
